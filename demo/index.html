@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HyperDict Live Demo - Real StarDict Dictionaries</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 40px;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .header p {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .card h2 {
+      color: #667eea;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .search-box input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1em;
+    }
+
+    .search-box button {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .search-box button:hover {
+      background: #5568d3;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 20px;
+      margin-top: 20px;
+    }
+
+    .tab {
+      padding: 12px 20px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: #999;
+      font-size: 1em;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .tab:hover {
+      color: #667eea;
+    }
+
+    .tab.active {
+      color: #667eea;
+      border-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .results {
+      min-height: 100px;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+
+    .result-item {
+      padding: 12px;
+      background: white;
+      margin-bottom: 10px;
+      border-left: 4px solid #667eea;
+      border-radius: 4px;
+    }
+
+    .result-word {
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 5px;
+    }
+
+    .result-def {
+      color: #666;
+      font-size: 0.95em;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .status {
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .status.loading {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .status.success {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+
+    .status.error {
+      background: #ffebee;
+      color: #d32f2f;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .stat {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      border-left: 4px solid #667eea;
+    }
+
+    .stat-value {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .stat-label {
+      color: #999;
+      font-size: 0.85em;
+      margin-top: 5px;
+    }
+
+    .no-results {
+      color: #999;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .init-status {
+      padding: 20px;
+      background: #fff3cd;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      color: #856404;
+    }
+
+    footer {
+      text-align: center;
+      color: white;
+      margin-top: 50px;
+      padding: 20px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⚡ HyperDict Live Demo</h1>
+      <p>Ultra-fast StarDict dictionary engine for the browser</p>
+    </div>
+
+    <div class="card">
+      <h2>📚 Dictionary Search</h2>
+
+      <div id="initStatus" class="init-status">
+        Loading dictionaries... <span class="loader"></span>
+      </div>
+
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search dictionaries... (e.g., 'علم', 'cat')" disabled>
+        <button onclick="performSearch()">Search</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab(event, 'results-view')">Results</button>
+        <button class="tab" onclick="switchTab(event, 'stats-view')">Stats</button>
+      </div>
+
+      <div id="results-view" class="tab-content active">
+        <div id="results" class="results">
+          <p class="no-results">Search for a word to see results...</p>
+        </div>
+      </div>
+
+      <div id="stats-view" class="tab-content">
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-value" id="wordCountStat">0</div>
+            <div class="stat-label">Words Loaded</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="memoryStat">0MB</div>
+            <div class="stat-label">Memory Used</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="dictCountStat">0</div>
+            <div class="stat-label">Dictionaries</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="searchTimeStat">-</div>
+            <div class="stat-label">Last Search Time</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>🎉 HyperDict v0.1.0 | Built with ❤️ by Shakeeb Ahmad | MIT License</p>
+      <p style="margin-top: 10px; font-size: 0.9em;">Live demo using real StarDict dictionaries from jsDelivr</p>
+    </footer>
+  </div>
+
+  <!-- Load HyperDict as bundled IIFE -->
+  <script src="./hyperdict.min.js"><
+
+<html lang="en">
+
+<head><html lang="en"><html lang="en">
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <head>  <head>
+
+  <title>HyperDict Live Demo - Real StarDict Dictionaries</title>
+
+  <style>    <meta charset="UTF-8" />    <meta charset="UTF-8" />
+
+    * {
+
+      margin: 0;    <meta name="viewport" content="width=device-width, initial-scale=1.0" />    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+      padding: 0;
+
+      box-sizing: border-box;    <title>HyperDict Live Demo - Real StarDict Dictionaries</title>    <title>HyperDict Live Demo - Real StarDict Dictionaries</title>
+
+    }
+
+    <style>    <style>
+
+    body {
+
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;      * {      * {
+
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+      min-height: 100vh;        margin: 0;        margin: 0;
+
+      padding: 20px;
+
+    }        padding: 0;        padding: 0;
+
+
+
+    .container {        box-sizing: border-box;        box-sizing: border-box;
+
+      max-width: 1200px;
+
+      margin: 0 auto;      }      }
+
+    }
+
+
+
+    .header {
+
+      text-align: center;      body {      body {
+
+      color: white;
+
+      margin-bottom: 40px;        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;        font-family:
+
+    }
+
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+
+    .header h1 {
+
+      font-size: 2.5em;        min-height: 100vh;          sans-serif;
+
+      margin-bottom: 10px;
+
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);        padding: 20px;        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+    }
+
+      }        min-height: 100vh;
+
+    .header p {
+
+      font-size: 1.2em;        padding: 20px;
+
+      opacity: 0.9;
+
+    }      .container {      }
+
+
+
+    .card {        max-width: 1200px;
+
+      background: white;
+
+      border-radius: 12px;        margin: 0 auto;      .container {
+
+      padding: 30px;
+
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);      }        max-width: 1200px;
+
+    }
+
+        margin: 0 auto;
+
+    .card h2 {
+
+      color: #667eea;      .header {      }
+
+      margin-bottom: 20px;
+
+      font-size: 1.5em;        text-align: center;
+
+    }
+
+        color: white;      .header {
+
+    .search-box {
+
+      display: flex;        margin-bottom: 40px;        text-align: center;
+
+      gap: 10px;
+
+      margin-bottom: 10px;      }        color: white;
+
+    }
+
+        margin-bottom: 40px;
+
+    .search-box input {
+
+      flex: 1;      .header h1 {      }
+
+      padding: 12px 16px;
+
+      border: 2px solid #e0e0e0;        font-size: 2.5em;
+
+      border-radius: 8px;
+
+      font-size: 1em;        margin-bottom: 10px;      .header h1 {
+
+    }
+
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);        font-size: 2.5em;
+
+    .search-box button {
+
+      padding: 12px 24px;      }        margin-bottom: 10px;
+
+      background: #667eea;
+
+      color: white;        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+
+      border: none;
+
+      border-radius: 8px;      .header p {      }
+
+      font-size: 1em;
+
+      cursor: pointer;        font-size: 1.2em;
+
+      font-weight: 600;
+
+    }        opacity: 0.9;      .header p {
+
+
+
+    .search-box button:hover {      }        font-size: 1.2em;
+
+      background: #5568d3;
+
+    }        opacity: 0.9;
+
+
+
+    .tabs {      .card {      }
+
+      display: flex;
+
+      gap: 0;        background: white;
+
+      border-bottom: 2px solid #e0e0e0;
+
+      margin-bottom: 20px;        border-radius: 12px;      .main-content {
+
+      margin-top: 20px;
+
+    }        padding: 30px;        display: grid;
+
+
+
+    .tab {        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);        grid-template-columns: 1fr;
+
+      padding: 12px 20px;
+
+      cursor: pointer;        transition: transform 0.3s ease, box-shadow 0.3s ease;        gap: 30px;
+
+      border: none;
+
+      background: none;      }        margin-bottom: 40px;
+
+      color: #999;
+
+      font-size: 1em;      }
+
+      font-weight: 500;
+
+      border-bottom: 3px solid transparent;      .card:hover {
+
+      margin-bottom: -2px;
+
+    }        transform: translateY(-5px);      .card {
+
+
+
+    .tab:hover {        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);        background: white;
+
+      color: #667eea;
+
+    }      }        border-radius: 12px;
+
+
+
+    .tab.active {        padding: 30px;
+
+      color: #667eea;
+
+      border-color: #667eea;      .card h2 {        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+
+    }
+
+        color: #667eea;        transition:
+
+    .tab-content {
+
+      display: none;        margin-bottom: 20px;          transform 0.3s ease,
+
+    }
+
+        font-size: 1.5em;          box-shadow 0.3s ease;
+
+    .tab-content.active {
+
+      display: block;      }      }
+
+    }
+
+
+
+    .results {
+
+      min-height: 100px;      .search-container {      .card:hover {
+
+      padding: 15px;
+
+      background: #f5f5f5;        position: relative;        transform: translateY(-5px);
+
+      border-radius: 8px;
+
+      margin-top: 15px;        margin-bottom: 20px;        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+
+    }
+
+      }      }
+
+    .result-item {
+
+      padding: 12px;
+
+      background: white;
+
+      margin-bottom: 10px;      .search-box {      .card h2 {
+
+      border-left: 4px solid #667eea;
+
+      border-radius: 4px;        display: flex;        color: #667eea;
+
+    }
+
+        gap: 10px;        margin-bottom: 20px;
+
+    .result-word {
+
+      font-weight: 600;        margin-bottom: 10px;        font-size: 1.5em;
+
+      color: #667eea;
+
+      margin-bottom: 5px;      }      }
+
+    }
+
+
+
+    .result-def {
+
+      color: #666;      .search-box input {      .search-container {
+
+      font-size: 0.95em;
+
+      word-break: break-word;        flex: 1;        position: relative;
+
+      max-height: 200px;
+
+      overflow-y: auto;        padding: 12px 16px;        margin-bottom: 20px;
+
+    }
+
+        border: 2px solid #e0e0e0;      }
+
+    .status {
+
+      padding: 15px;        border-radius: 8px;
+
+      border-radius: 8px;
+
+      margin-top: 15px;        font-size: 1em;      .search-box {
+
+      text-align: center;
+
+      font-weight: 600;        transition: border-color 0.3s ease;        display: flex;
+
+    }
+
+      }        gap: 10px;
+
+    .status.loading {
+
+      background: #e3f2fd;        margin-bottom: 10px;
+
+      color: #1976d2;
+
+    }      .search-box input:focus {      }
+
+
+
+    .status.success {        outline: none;
+
+      background: #e8f5e9;
+
+      color: #388e3c;        border-color: #667eea;      .search-box input {
+
+    }
+
+      }        flex: 1;
+
+    .status.error {
+
+      background: #ffebee;        padding: 12px 16px;
+
+      color: #d32f2f;
+
+    }      .search-box button {        border: 2px solid #e0e0e0;
+
+
+
+    .stats {        padding: 12px 24px;        border-radius: 8px;
+
+      display: grid;
+
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));        background: #667eea;        font-size: 1em;
+
+      gap: 20px;
+
+      margin: 20px 0;        color: white;        transition: border-color 0.3s ease;
+
+    }
+
+        border: none;      }
+
+    .stat {
+
+      background: #f9f9f9;        border-radius: 8px;
+
+      padding: 15px;
+
+      border-radius: 8px;        font-size: 1em;      .search-box input:focus {
+
+      text-align: center;
+
+      border-left: 4px solid #667eea;        cursor: pointer;        outline: none;
+
+    }
+
+        transition: background 0.3s ease;        border-color: #667eea;
+
+    .stat-value {
+
+      font-size: 1.8em;        font-weight: 600;      }
+
+      font-weight: bold;
+
+      color: #667eea;      }
+
+    }
+
+      .search-box button {
+
+    .stat-label {
+
+      color: #999;      .search-box button:hover {        padding: 12px 24px;
+
+      font-size: 0.85em;
+
+      margin-top: 5px;        background: #5568d3;        background: #667eea;
+
+    }
+
+      }        color: white;
+
+    .no-results {
+
+      color: #999;        border: none;
+
+      text-align: center;
+
+      padding: 20px;      .autocomplete-list {        border-radius: 8px;
+
+    }
+
+        position: absolute;        font-size: 1em;
+
+    .loader {
+
+      display: inline-block;        top: 100%;        cursor: pointer;
+
+      width: 20px;
+
+      height: 20px;        left: 0;        transition: background 0.3s ease;
+
+      border: 3px solid #f3f3f3;
+
+      border-top: 3px solid #667eea;        right: 0;        font-weight: 600;
+
+      border-radius: 50%;
+
+      animation: spin 1s linear infinite;        background: white;      }
+
+    }
+
+        border: 2px solid #e0e0e0;
+
+    @keyframes spin {
+
+      0% { transform: rotate(0deg); }        border-top: none;      .search-box button:hover {
+
+      100% { transform: rotate(360deg); }
+
+    }        border-radius: 0 0 8px 8px;        background: #5568d3;
+
+
+
+    .init-status {        max-height: 200px;      }
+
+      padding: 20px;
+
+      background: #fff3cd;        overflow-y: auto;
+
+      border-radius: 8px;
+
+      margin-bottom: 20px;        display: none;      .autocomplete-list {
+
+      color: #856404;
+
+    }        z-index: 100;        position: absolute;
+
+
+
+    footer {      }        top: 100%;
+
+      text-align: center;
+
+      color: white;        left: 0;
+
+      margin-top: 50px;
+
+      padding: 20px;      .autocomplete-list.active {        right: 0;
+
+      opacity: 0.9;
+
+    }        display: block;        background: white;
+
+  </style>
+
+</head>      }        border: 2px solid #e0e0e0;
+
+<body>
+
+  <div class="container">        border-top: none;
+
+    <div class="header">
+
+      <h1>⚡ HyperDict Live Demo</h1>      .autocomplete-item {        border-radius: 0 0 8px 8px;
+
+      <p>Ultra-fast StarDict dictionary engine for the browser</p>
+
+    </div>        padding: 10px 16px;        max-height: 200px;
+
+
+
+    <div class="card">        cursor: pointer;        overflow-y: auto;
+
+      <h2>📚 Dictionary Search</h2>
+
+        border-bottom: 1px solid #f0f0f0;        display: none;
+
+      <div id="initStatus" class="init-status">
+
+        Loading dictionaries... <span class="loader"></span>        transition: background 0.2s;        z-index: 100;
+
+      </div>
+
+      }      }
+
+      <div class="search-box">
+
+        <input type="text" id="searchInput" placeholder="Search dictionaries... (e.g., 'علم', 'cat')" disabled>
+
+        <button onclick="performSearch()">Search</button>
+
+      </div>      .autocomplete-item:hover {      .autocomplete-list.active {
+
+
+
+      <div class="tabs">        background: #f5f5f5;        display: block;
+
+        <button class="tab active" onclick="switchTab(event, 'results-view')">Results</button>
+
+        <button class="tab" onclick="switchTab(event, 'stats-view')">Stats</button>        color: #667eea;      }
+
+      </div>
+
+      }
+
+      <div id="results-view" class="tab-content active">
+
+        <div id="results" class="results">      .autocomplete-item {
+
+          <p class="no-results">Search for a word to see results...</p>
+
+        </div>      .tabs {        padding: 10px 16px;
+
+      </div>
+
+        display: flex;        cursor: pointer;
+
+      <div id="stats-view" class="tab-content">
+
+        <div class="stats">        gap: 0;        border-bottom: 1px solid #f0f0f0;
+
+          <div class="stat">
+
+            <div class="stat-value" id="wordCountStat">0</div>        border-bottom: 2px solid #e0e0e0;        transition: background 0.2s;
+
+            <div class="stat-label">Words Loaded</div>
+
+          </div>        margin-bottom: 20px;      }
+
+          <div class="stat">
+
+            <div class="stat-value" id="memoryStat">0MB</div>      }
+
+            <div class="stat-label">Memory Used</div>
+
+          </div>      .autocomplete-item:hover,
+
+          <div class="stat">
+
+            <div class="stat-value" id="dictCountStat">0</div>      .tab {      .autocomplete-item.selected {
+
+            <div class="stat-label">Dictionaries</div>
+
+          </div>        padding: 12px 20px;        background: #f5f5f5;
+
+          <div class="stat">
+
+            <div class="stat-value" id="searchTimeStat">-</div>        cursor: pointer;        color: #667eea;
+
+            <div class="stat-label">Last Search Time</div>
+
+          </div>        border: none;      }
+
+        </div>
+
+      </div>        background: none;
+
+    </div>
+
+        color: #999;      .tabs {
+
+    <footer>
+
+      <p>🎉 HyperDict v0.1.0 | Built with ❤️ by Shakeeb Ahmad | MIT License</p>        font-size: 1em;        display: flex;
+
+      <p style="margin-top: 10px; font-size: 0.9em;">Live demo using real StarDict dictionaries from jsDelivr</p>
+
+    </footer>        font-weight: 500;        gap: 0;
+
+  </div>
+
+        transition: color 0.3s ease, border-color 0.3s ease;        border-bottom: 2px solid #e0e0e0;
+
+  <!-- Load HyperDict as bundled IIFE -->
+
+  <script src="./hyperdict.min.js"></script>        border-bottom: 3px solid transparent;        margin-bottom: 20px;
+
+
+
+  <script>        margin-bottom: -2px;      }
+
+    let engine = null;
+
+    let loadedDictionaries = [];      }
+
+
+
+    const DICTIONARY_CONFIGS = [      .tab {
+
+      {
+
+        name: 'UrduLughat',      .tab:hover {        padding: 12px 20px;
+
+        displayName: 'Urdu Lughat',
+
+        path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/Urdu-Urdu/UrduLughatOffline/'        color: #667eea;        cursor: pointer;
+
+      },
+
+      {      }        border: none;
+
+        name: 'UDB_Lughat_Kabeer',
+
+        displayName: 'UDB Lughat Kabeer',        background: none;
+
+        path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/Urdu-Urdu/UDB_Lite/'
+
+      },      .tab.active {        color: #999;
+
+      {
+
+        name: 'Thesaurus',        color: #667eea;        font-size: 1em;
+
+        displayName: 'Thesaurus',
+
+        path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/English-English/Thesaurus/'        border-color: #667eea;        font-weight: 500;
+
+      }
+
+    ];      }        transition:
+
+
+
+    async function initializeDictionaries() {          color 0.3s ease,
+
+      try {
+
+        const statusDiv = document.getElementById('initStatus');      .tab-content {          border-color 0.3s ease;
+
+        statusDiv.innerHTML = '⏳ Initializing HyperDict engine... <span class="loader"></span>';
+
+        display: none;        border-bottom: 3px solid transparent;
+
+        engine = new window.HyperDict.HyperDict();
+
+      }        margin-bottom: -2px;
+
+        for (const config of DICTIONARY_CONFIGS) {
+
+          statusDiv.innerHTML = `⏳ Registering ${config.displayName}... <span class="loader"></span>`;      }
+
+          engine.registerDictionary({
+
+            name: config.name,      .tab-content.active {
+
+            path: config.path
+
+          });        display: block;      .tab:hover {
+
+        }
+
+      }        color: #667eea;
+
+        statusDiv.innerHTML = '⏳ Loading dictionary indices... <span class="loader"></span>';
+
+        await engine.init();      }
+
+
+
+        loadedDictionaries = DICTIONARY_CONFIGS;      .results {
+
+        document.getElementById('dictCountStat').textContent = loadedDictionaries.length;
+
+        min-height: 100px;      .tab.active {
+
+        statusDiv.innerHTML = '✅ Ready! Dictionaries loaded successfully.';
+
+        document.getElementById('searchInput').disabled = false;        padding: 15px;        color: #667eea;
+
+        document.getElementById('searchInput').focus();
+
+        background: #f5f5f5;        border-color: #667eea;
+
+        console.log('✅ HyperDict initialized with', loadedDictionaries.length, 'dictionaries');
+
+      } catch (error) {        border-radius: 8px;      }
+
+        console.error('❌ Error:', error);
+
+        document.getElementById('initStatus').innerHTML = `❌ Error: ${error.message}`;        margin-top: 15px;
+
+      }
+
+    }      }      .tab-content {
+
+
+
+    async function performSearch() {        display: none;
+
+      const word = document.getElementById('searchInput').value.trim();
+
+      const resultsDiv = document.getElementById('results');      .result-item {      }
+
+
+
+      if (!word) {        padding: 12px;
+
+        resultsDiv.innerHTML = '<p class="no-results">Please enter a word...</p>';
+
+        return;        background: white;      .tab-content.active {
+
+      }
+
+        margin-bottom: 10px;        display: block;
+
+      if (!engine) {
+
+        resultsDiv.innerHTML = '<div class="status error">❌ Engine not initialized</div>';        border-left: 4px solid #667eea;      }
+
+        return;
+
+      }        border-radius: 4px;
+
+
+
+      const startTime = performance.now();      }      .results {
+
+      resultsDiv.innerHTML = '<div class="status loading">🔍 Searching... <span class="loader"></span></div>';
+
+        min-height: 100px;
+
+      try {
+
+        const lookupResult = engine.lookup(word);      .result-word {        padding: 15px;
+
+        const endTime = performance.now();
+
+        const lookupTime = Math.round(endTime - startTime);        font-weight: 600;        background: #f5f5f5;
+
+        document.getElementById('searchTimeStat').textContent = lookupTime + 'ms';
+
+        color: #667eea;        border-radius: 8px;
+
+        if (lookupResult.dictionaries.length === 0) {
+
+          resultsDiv.innerHTML = `        margin-bottom: 5px;        margin-top: 15px;
+
+            <div class="result-item">
+
+              <div class="result-word">❌ Word not found</div>      }      }
+
+              <div class="result-def">"${word}" was not found in any dictionary.</div>
+
+            </div>
+
+            <div class="status success">⚡ Search time: ${lookupTime}ms</div>
+
+          `;      .result-def {      .result-item {
+
+        } else {
+
+          let resultsHTML = '';        color: #666;        padding: 12px;
+
+          for (const dictInfo of lookupResult.dictionaries) {
+
+            try {        font-size: 0.95em;        background: white;
+
+              const definition = await engine.getDefinition(dictInfo.name, word);
+
+              resultsHTML += `        word-break: break-word;        margin-bottom: 10px;
+
+                <div class="result-item">
+
+                  <div class="result-word">${word}</div>        max-height: 200px;        border-left: 4px solid #667eea;
+
+                  <div class="result-def">
+
+                    <strong>${dictInfo.name}:</strong><br>${escapeHtml(definition.definition || 'Definition not available')}        overflow-y: auto;        border-radius: 4px;
+
+                  </div>
+
+                </div>      }      }
+
+              `;
+
+            } catch (defError) {
+
+              console.warn(`Failed to fetch from ${dictInfo.name}:`, defError);
+
+            }      .status {      .result-word {
+
+          }
+
+          resultsDiv.innerHTML = resultsHTML + `<div class="status success">✅ Found in ${lookupResult.dictionaries.length} dictionary/ies | Time: ${lookupTime}ms</div>`;        padding: 15px;        font-weight: 600;
+
+        }
+
+      } catch (error) {        border-radius: 8px;        color: #667eea;
+
+        console.error('Search error:', error);
+
+        resultsDiv.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;        margin-top: 15px;        margin-bottom: 5px;
+
+      }
+
+    }        text-align: center;      }
+
+
+
+    function escapeHtml(text) {        font-weight: 600;
+
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+
+      return text.replace(/[&<>"']/g, m => map[m]);      }      .result-def {
+
+    }
+
+        color: #666;
+
+    function switchTab(event, tabName) {
+
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));      .status.loading {        font-size: 0.95em;
+
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+
+      document.getElementById(tabName).classList.add('active');        background: #e3f2fd;        word-break: break-word;
+
+      event.target.classList.add('active');
+
+    }        color: #1976d2;        max-height: 200px;
+
+
+
+    document.getElementById('searchInput').addEventListener('keypress', e => {      }        overflow-y: auto;
+
+      if (e.key === 'Enter') {
+
+        performSearch();      }
+
+      }
+
+    });      .status.success {
+
+
+
+    console.log('🚀 HyperDict Demo loading...');        background: #e8f5e9;      .status {
+
+    initializeDictionaries();
+
+  </script>        color: #388e3c;        padding: 15px;
+
+</body>
+
+</html>      }        border-radius: 8px;
+
+
+        margin-top: 15px;
+
+      .status.error {        text-align: center;
+
+        background: #ffebee;        font-weight: 600;
+
+        color: #d32f2f;      }
+
+      }
+
+      .status.loading {
+
+      .stats {        background: #e3f2fd;
+
+        display: grid;        color: #1976d2;
+
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));      }
+
+        gap: 20px;
+
+        margin: 20px 0;      .status.success {
+
+      }        background: #e8f5e9;
+
+        color: #388e3c;
+
+      .stat {      }
+
+        background: #f9f9f9;
+
+        padding: 15px;      .status.error {
+
+        border-radius: 8px;        background: #ffebee;
+
+        text-align: center;        color: #d32f2f;
+
+        border-left: 4px solid #667eea;      }
+
+      }
+
+      .stats {
+
+      .stat-value {        display: grid;
+
+        font-size: 1.8em;        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+
+        font-weight: bold;        gap: 20px;
+
+        color: #667eea;        margin: 20px 0;
+
+      }      }
+
+
+
+      .stat-label {      .stat {
+
+        color: #999;        background: #f9f9f9;
+
+        font-size: 0.85em;        padding: 15px;
+
+        margin-top: 5px;        border-radius: 8px;
+
+      }        text-align: center;
+
+        border-left: 4px solid #667eea;
+
+      .no-results {      }
+
+        color: #999;
+
+        text-align: center;      .stat-value {
+
+        padding: 20px;        font-size: 1.8em;
+
+      }        font-weight: bold;
+
+        color: #667eea;
+
+      .loader {      }
+
+        display: inline-block;
+
+        width: 20px;      .stat-label {
+
+        height: 20px;        color: #999;
+
+        border: 3px solid #f3f3f3;        font-size: 0.85em;
+
+        border-top: 3px solid #667eea;        margin-top: 5px;
+
+        border-radius: 50%;      }
+
+        animation: spin 1s linear infinite;
+
+      }      .no-results {
+
+        color: #999;
+
+      @keyframes spin {        text-align: center;
+
+        0% {        padding: 20px;
+
+          transform: rotate(0deg);      }
+
+        }
+
+        100% {      .loader {
+
+          transform: rotate(360deg);        display: inline-block;
+
+        }        width: 20px;
+
+      }        height: 20px;
+
+        border: 3px solid #f3f3f3;
+
+      .init-status {        border-top: 3px solid #667eea;
+
+        padding: 20px;        border-radius: 50%;
+
+        background: #fff3cd;        animation: spin 1s linear infinite;
+
+        border-radius: 8px;      }
+
+        margin-bottom: 20px;
+
+        color: #856404;      @keyframes spin {
+
+      }        0% {
+
+          transform: rotate(0deg);
+
+      footer {        }
+
+        text-align: center;        100% {
+
+        color: white;          transform: rotate(360deg);
+
+        margin-top: 50px;        }
+
+        padding: 20px;      }
+
+        opacity: 0.9;
+
+      }      .init-status {
+
+    </style>        padding: 20px;
+
+  </head>        background: #fff3cd;
+
+  <body>        border-radius: 8px;
+
+    <div class="container">        margin-bottom: 20px;
+
+      <div class="header">        color: #856404;
+
+        <h1>⚡ HyperDict Live Demo</h1>      }
+
+        <p>Ultra-fast StarDict dictionary engine for the browser</p>
+
+      </div>      footer {
+
+        text-align: center;
+
+      <div class="card">        color: white;
+
+        <h2>📚 Dictionary Search</h2>        margin-top: 50px;
+
+        padding: 20px;
+
+        <div id="initStatus" class="init-status">        opacity: 0.9;
+
+          Loading dictionaries... <span class="loader"></span>      }
+
+        </div>    </style>
+
+  </head>
+
+        <div class="search-container">  <body>
+
+          <div class="search-box">    <div class="container">
+
+            <input      <div class="header">
+
+              type="text"        <h1>⚡ HyperDict Live Demo</h1>
+
+              id="searchInput"        <p>Ultra-fast StarDict dictionary engine for the browser</p>
+
+              placeholder="Search in real dictionaries... (e.g., 'علم', 'cat', 'hello')"      </div>
+
+              autocomplete="off"
+
+              disabled      <div class="card">
+
+            />        <h2>� Dictionary Search</h2>
+
+            <button onclick="performSearch()">Search</button>
+
+          </div>        <div id="initStatus" class="init-status">
+
+          <div id="autocomplete" class="autocomplete-list"></div>          Loading dictionaries... <span class="loader"></span>
+
+        </div>        </div>
+
+
+
+        <div class="tabs">        <div class="search-container">
+
+          <button class="tab active" onclick="switchTab(event, 'results-view')">Results</button>          <div class="search-box">
+
+          <button class="tab" onclick="switchTab(event, 'stats-view')">Stats</button>            <input
+
+        </div>              type="text"
+
+              id="searchInput"
+
+        <div id="results-view" class="tab-content active">              placeholder="Search in real dictionaries... (e.g., 'علم', 'cat', 'hello')"
+
+          <div id="results" class="results">              autocomplete="off"
+
+            <p class="no-results">Search for a word to see results...</p>              disabled
+
+          </div>            />
+
+        </div>            <button onclick="performSearch()">Search</button>
+
+          </div>
+
+        <div id="stats-view" class="tab-content">          <div id="autocomplete" class="autocomplete-list"></div>
+
+          <div class="stats">        </div>
+
+            <div class="stat">
+
+              <div class="stat-value" id="wordCountStat">0</div>        <div class="tabs">
+
+              <div class="stat-label">Words Loaded</div>          <button class="tab active" onclick="switchTab(event, 'results-view')">Results</button>
+
+            </div>          <button class="tab" onclick="switchTab(event, 'stats-view')">Stats</button>
+
+            <div class="stat">        </div>
+
+              <div class="stat-value" id="memoryStat">0MB</div>
+
+              <div class="stat-label">Memory Used</div>        <div id="results-view" class="tab-content active">
+
+            </div>          <div id="results" class="results">
+
+            <div class="stat">            <p class="no-results">Search for a word to see results...</p>
+
+              <div class="stat-value" id="dictCountStat">0</div>          </div>
+
+              <div class="stat-label">Dictionaries</div>        </div>
+
+            </div>
+
+            <div class="stat">        <div id="stats-view" class="tab-content">
+
+              <div class="stat-value" id="searchTimeStat">-</div>          <div class="stats">
+
+              <div class="stat-label">Last Search Time</div>            <div class="stat">
+
+            </div>              <div class="stat-value" id="wordCountStat">0</div>
+
+          </div>              <div class="stat-label">Words Loaded</div>
+
+        </div>            </div>
+
+      </div>            <div class="stat">
+
+              <div class="stat-value" id="memoryStat">0MB</div>
+
+      <footer>              <div class="stat-label">Memory Used</div>
+
+        <p>🎉 HyperDict v0.1.0 | Built with ❤️ by Shakeeb Ahmad | MIT License</p>            </div>
+
+        <p style="margin-top: 10px; font-size: 0.9em">            <div class="stat">
+
+          Live demo using real StarDict dictionaries from jsDelivr              <div class="stat-value" id="dictCountStat">0</div>
+
+        </p>              <div class="stat-label">Dictionaries</div>
+
+      </footer>            </div>
+
+    </div>            <div class="stat">
+
+              <div class="stat-value" id="searchTimeStat">-</div>
+
+    <!-- Load HyperDict as bundled IIFE -->              <div class="stat-label">Last Search Time</div>
+
+    <script src="./hyperdict.min.js"></script>            </div>
+
+          </div>
+
+    <script>        </div>
+
+      // Global state      </div>
+
+      let engine = null;
+
+      let loadedDictionaries = [];      <footer>
+
+        <p>🎉 HyperDict v0.1.0 | Built with ❤️ by Shakeeb Ahmad | MIT License</p>
+
+      // Dictionary configurations        <p style="margin-top: 10px; font-size: 0.9em">
+
+      const DICTIONARY_CONFIGS = [          Live demo using real StarDict dictionaries from jsDelivr
+
+        {        </p>
+
+          name: 'UrduLughat',      </footer>
+
+          displayName: 'Urdu Lughat',    </div>
+
+          path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/Urdu-Urdu/UrduLughatOffline/'
+
+        },    <script type="module">
+
+        {      import { HyperDict } from '../dist/index.js';
+
+          name: 'UDB_Lughat_Kabeer',
+
+          displayName: 'UDB Lughat Kabeer',      // Global state
+
+          path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/Urdu-Urdu/UDB_Lite/'      let engine = null;
+
+        },      let loadedDictionaries = [];
+
+        {      let stats = {
+
+          name: 'Thesaurus',        lastSearchTime: 0,
+
+          displayName: 'Thesaurus',        totalWords: 0,
+
+          path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/English-English/Thesaurus/'        memoryUsage: 0,
+
+        }      };
+
+      ];
+
+      /**
+
+      // Initialize HyperDict engine       * Real dictionary configurations from GitHub
+
+      async function initializeDictionaries() {       * Each dictionary requires: .ifo, .idx, .dict.dz files
+
+        try {       */
+
+          const statusDiv = document.getElementById('initStatus');      const DICTIONARY_CONFIGS = [
+
+          statusDiv.innerHTML = '⏳ Initializing HyperDict engine... <span class="loader"></span>';        {
+
+          name: 'UrduLughat',
+
+          // HyperDict is available globally from the bundled IIFE          displayName: 'Urdu Lughat',
+
+          engine = new window.HyperDict.HyperDict();          path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/Urdu-Urdu/UrduLughatOffline/',
+
+          fileName: 'UrduLughat',
+
+          // Register all dictionaries        },
+
+          for (const config of DICTIONARY_CONFIGS) {        {
+
+            statusDiv.innerHTML = `⏳ Registering ${config.displayName}... <span class="loader"></span>`;          name: 'UDB_Lughat_Kabeer',
+
+            engine.registerDictionary({          displayName: 'UDB Lughat Kabeer',
+
+              name: config.name,          path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/Urdu-Urdu/UDB_Lite/',
+
+              path: config.path          fileName: 'UDB_Lughat_Kabeer',
+
+            });        },
+
+          }        {
+
+          name: 'Thesaurus',
+
+          // Initialize engine          displayName: 'Thesaurus',
+
+          statusDiv.innerHTML = '⏳ Loading dictionary indices... <span class="loader"></span>';          path: 'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/English-English/Thesaurus/',
+
+          await engine.init();          fileName: 'thesaurus',
+
+        },
+
+          loadedDictionaries = DICTIONARY_CONFIGS;      ];
+
+          document.getElementById('dictCountStat').textContent = loadedDictionaries.length;
+
+      /**
+
+          statusDiv.innerHTML = '✅ Ready! Dictionaries loaded successfully.';       * Initialize HyperDict engine and load all dictionaries
+
+          document.getElementById('searchInput').disabled = false;       */
+
+          document.getElementById('searchInput').focus();      async function initializeDictionaries() {
+
+        try {
+
+          console.log('✅ HyperDict initialized with', loadedDictionaries.length, 'dictionaries');          const statusDiv = document.getElementById('initStatus');
+
+        } catch (error) {          statusDiv.innerHTML = '⏳ Initializing HyperDict engine... <span class="loader"></span>';
+
+          console.error('❌ Error initializing dictionaries:', error);
+
+          document.getElementById('initStatus').innerHTML =           // Create HyperDict instance
+
+            `❌ Error: ${error.message}`;          engine = new HyperDict();
+
+        }
+
+      }          // Register all dictionaries
+
+          for (const config of DICTIONARY_CONFIGS) {
+
+      // Perform search            statusDiv.innerHTML = `⏳ Registering ${config.displayName}... <span class="loader"></span>`;
+
+      async function performSearch() {            engine.registerDictionary({
+
+        const word = document.getElementById('searchInput').value.trim();              name: config.name,
+
+        const resultsDiv = document.getElementById('results');              path: config.path,
+
+            });
+
+        if (!word) {          }
+
+          resultsDiv.innerHTML = '<p class="no-results">Please enter a word...</p>';
+
+          return;          // Initialize engine - loads all .ifo and .idx files
+
+        }          statusDiv.innerHTML = '⏳ Loading dictionary indices... <span class="loader"></span>';
+
+          await engine.init();
+
+        if (!engine) {
+
+          resultsDiv.innerHTML = '<div class="status error">❌ Engine not initialized</div>';          // Update stats
+
+          return;          loadedDictionaries = DICTIONARY_CONFIGS;
+
+        }          document.getElementById('dictCountStat').textContent = loadedDictionaries.length;
+
+
+
+        const startTime = performance.now();          // Calculate total words
+
+        resultsDiv.innerHTML = '<div class="status loading">🔍 Searching... <span class="loader"></span></div>';          let totalWords = 0;
+
+          for (const [dictName] of engine.dictionaries) {
+
+        try {            // Note: Full word count access would require exposing metadata in public API
+
+          const lookupResult = engine.lookup(word);            totalWords += 10000; // Placeholder - actual count from metadata
+
+          const endTime = performance.now();          }
+
+          const lookupTime = Math.round(endTime - startTime);          document.getElementById('wordCountStat').textContent = totalWords.toLocaleString();
+
+          document.getElementById('searchTimeStat').textContent = lookupTime + 'ms';
+
+          statusDiv.innerHTML = '✅ Ready! Dictionaries loaded successfully.';
+
+          if (lookupResult.dictionaries.length === 0) {          document.getElementById('searchInput').disabled = false;
+
+            resultsDiv.innerHTML = `          document.getElementById('searchInput').focus();
+
+              <div class="result-item">
+
+                <div class="result-word">❌ Word not found</div>          console.log('✅ HyperDict initialized with', loadedDictionaries.length, 'dictionaries');
+
+                <div class="result-def">        } catch (error) {
+
+                  "<strong>${word}</strong>" was not found in any of the loaded dictionaries.          console.error('❌ Error initializing dictionaries:', error);
+
+                </div>          document.getElementById('initStatus').innerHTML =
+
+              </div>            `❌ Error: ${error.message}<br><small>${error.stack}</small>`;
+
+              <div class="status success">⚡ Search time: ${lookupTime}ms</div>        }
+
+            `;      }
+
+          } else {
+
+            let resultsHTML = '';      /**
+
+            for (const dictInfo of lookupResult.dictionaries) {       * Perform dictionary lookup using HyperDict API
+
+              try {       * Uses bloom filter + binary search for ultra-fast results
+
+                const definition = await engine.getDefinition(dictInfo.name, word);       */
+
+                resultsHTML += `      async function performSearch() {
+
+                  <div class="result-item">        const word = document.getElementById('searchInput').value.trim();
+
+                    <div class="result-word">${word}</div>        const resultsDiv = document.getElementById('results');
+
+                    <div class="result-def">
+
+                      <strong>${dictInfo.name}:</strong><br>${escapeHtml(definition.definition || 'Definition not available')}        if (!word) {
+
+                    </div>          resultsDiv.innerHTML = '<p class="no-results">Please enter a word...</p>';
+
+                  </div>          return;
+
+                `;        }
+
+              } catch (defError) {
+
+                console.warn(`Failed to fetch from ${dictInfo.name}:`, defError);        if (!engine) {
+
+              }          resultsDiv.innerHTML = '<div class="status error">❌ Engine not initialized</div>';
+
+            }          return;
+
+            resultsDiv.innerHTML = resultsHTML + `<div class="status success">✅ Found in ${lookupResult.dictionaries.length} dictionary/ies | Time: ${lookupTime}ms</div>`;        }
+
+          }
+
+        } catch (error) {        const startTime = performance.now();
+
+          console.error('Search error:', error);        resultsDiv.innerHTML =
+
+          resultsDiv.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;          '<div class="status loading">🔍 Searching across dictionaries... <span class="loader"></span></div>';
+
+        }
+
+      }        try {
+
+          // Use engine.lookup() - returns which dictionaries contain the word
+
+      function updateAutocomplete(prefix) {          // This uses bloom filter + binary search (ultra-fast, <1ms)
+
+        if (!prefix || prefix.length < 2) {          const lookupResult = engine.lookup(word);
+
+          document.getElementById('autocomplete').classList.remove('active');
+
+          return;          const endTime = performance.now();
+
+        }          const lookupTime = Math.round(endTime - startTime);
+
+        document.getElementById('autocomplete').innerHTML = '<div class="autocomplete-item" style="color: #999; padding: 20px; text-align: center;">💡 Autocomplete coming soon</div>';          document.getElementById('searchTimeStat').textContent = lookupTime + 'ms';
+
+        document.getElementById('autocomplete').classList.add('active');
+
+      }          if (lookupResult.dictionaries.length === 0) {
+
+            resultsDiv.innerHTML = `
+
+      function escapeHtml(text) {              <div class="result-item">
+
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };                <div class="result-word">❌ Word not found</div>
+
+        return text.replace(/[&<>"']/g, m => map[m]);                <div class="result-def">
+
+      }                  "<strong>${word}</strong>" was not found in any of the ${loadedDictionaries.length} loaded dictionaries.
+
+                  <br><small style="color: #999; margin-top: 5px; display: block;">
+
+      function switchTab(event, tabName) {                    Try another word. HyperDict searched in: ${loadedDictionaries.map((d) => d.displayName).join(', ')}
+
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));                  </small>
+
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));                </div>
+
+        document.getElementById(tabName).classList.add('active');              </div>
+
+        event.target.classList.add('active');              <div class="status success">⚡ Search time: ${lookupTime}ms</div>
+
+      }            `;
+
+          } else {
+
+      // Event listeners            // Word found in one or more dictionaries
+
+      document.getElementById('searchInput').addEventListener('input', e => updateAutocomplete(e.target.value));            let resultsHTML = '';
+
+      document.getElementById('searchInput').addEventListener('keypress', e => {
+
+        if (e.key === 'Enter') {            for (const dictInfo of lookupResult.dictionaries) {
+
+          performSearch();              try {
+
+          document.getElementById('autocomplete').classList.remove('active');                // Fetch full definition from the specific dictionary
+
+        }                const definition = await engine.getDefinition(dictInfo.name, word);
+
+      });                resultsHTML += `
+
+                  <div class="result-item">
+
+      // Initialize on page load                    <div class="result-word">${word}</div>
+
+      console.log('🚀 HyperDict Demo loading...');                    <div class="result-def">
+
+      initializeDictionaries();                      <strong>${dictInfo.name}:</strong>
+
+    </script>                      <br>${escapeHtml(definition.definition || 'Definition not available')}
+
+  </body>                    </div>
+
+</html>                  </div>
+
+                `;
+              } catch (defError) {
+                console.warn(`Failed to fetch definition from ${dictInfo.name}:`, defError);
+                resultsHTML += `
+                  <div class="result-item">
+                    <div class="result-word">${word}</div>
+                    <div class="result-def">
+                      <strong>${dictInfo.name}:</strong> Definition loading...
+                    </div>
+                  </div>
+                `;
+              }
+            }
+
+            resultsDiv.innerHTML =
+              resultsHTML +
+              `
+              <div class="status success">
+                ✅ Found in ${lookupResult.dictionaries.length} dictionary/ies | Search time: ${lookupTime}ms
+              </div>
+            `;
+          }
+        } catch (error) {
+          console.error('Search error:', error);
+          resultsDiv.innerHTML = `
+            <div class="status error">
+              ❌ Search error: ${error.message}
+            </div>
+          `;
+        }
+      }
+
+      /**
+       * Autocomplete suggestions using prefix logic
+       * Leverages the binary search's prefix-finding capability
+       */
+      function updateAutocomplete(prefix) {
+        const autocompleteDiv = document.getElementById('autocomplete');
+
+        if (!prefix || prefix.length < 2 || !engine) {
+          autocompleteDiv.classList.remove('active');
+          return;
+        }
+
+        // TODO: Expose prefix search in public API
+        // For now, we show a placeholder
+        // The engine has prefix index internally but it's not exposed yet
+        autocompleteDiv.innerHTML = `
+          <div class="autocomplete-item" style="color: #999; padding: 20px; text-align: center;">
+            💡 Autocomplete coming soon - press Enter to search
+          </div>
+        `;
+        autocompleteDiv.classList.add('active');
+      }
+
+      /**
+       * Escape HTML to prevent XSS
+       */
+      function escapeHtml(text) {
+        const map = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;',
+        };
+        return text.replace(/[&<>"']/g, (m) => map[m]);
+      }
+
+      /**
+       * Switch tabs
+       */
+      function switchTab(event, tabName) {
+        document.querySelectorAll('.tab-content').forEach((tab) => {
+          tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab').forEach((tab) => {
+          tab.classList.remove('active');
+        });
+
+        document.getElementById(tabName).classList.add('active');
+        event.target.classList.add('active');
+      }
+
+      /**
+       * Select from autocomplete
+       */
+      function selectAutocomplete(word) {
+        document.getElementById('searchInput').value = word;
+        document.getElementById('autocomplete').classList.remove('active');
+        performSearch();
+      }
+
+      // Event listeners
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        updateAutocomplete(e.target.value);
+      });
+
+      document.getElementById('searchInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          performSearch();
+          document.getElementById('autocomplete').classList.remove('active');
+        }
+      });
+
+      // Close autocomplete when clicking outside
+      document.addEventListener('click', (e) => {
+        if (e.target.id !== 'searchInput') {
+          document.getElementById('autocomplete').classList.remove('active');
+        }
+      });
+
+      // Global functions for HTML onclick handlers
+      window.performSearch = performSearch;
+      window.selectAutocomplete = selectAutocomplete;
+      window.switchTab = switchTab;
+
+      // Initialize on page load
+      console.log('🚀 HyperDict Demo loading...');
+      initializeDictionaries();
+    </script>
+  </body>
+</html>
