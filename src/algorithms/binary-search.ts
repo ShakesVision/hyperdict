@@ -31,6 +31,32 @@ export class ShaekeebBinarySearch {
   }
 
   /**
+   * Find an exact word match within a bounded index range [start, end]
+   * (inclusive). Used together with the prefix index to shrink the search
+   * window. Returns the word index, or -1 if not found.
+   */
+  public findWordInRange(searchWord: string, start: number, end: number): number {
+    const searchBytes = this.encoder.encode(searchWord);
+    let left = Math.max(0, start);
+    let right = Math.min(this.index.wordOffsets.length - 1, end);
+
+    while (left <= right) {
+      const mid = (left + right) >>> 1;
+      const cmp = this.compareWordAtIndex(mid, searchBytes);
+
+      if (cmp === 0) {
+        return mid;
+      } else if (cmp < 0) {
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+
+    return -1;
+  }
+
+  /**
    * Low-level binary search using byte arrays
    * Avoids string creation for performance
    */

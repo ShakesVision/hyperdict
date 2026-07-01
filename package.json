@@ -6,6 +6,19 @@
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui.d.ts",
+      "import": "./dist/ui.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "npm run build:ts && npm run build:bundle",
     "build:ts": "tsc",
@@ -39,5 +52,8 @@
     "prettier": "^3.0.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
   }
 }

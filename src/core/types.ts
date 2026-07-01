@@ -69,6 +69,13 @@ export interface DefinitionResult {
   word: string;
   definition: string;
   dictName: string;
+  /**
+   * StarDict content type of the definition payload.
+   * Common values: 'h' = HTML, 'm' = plain UTF-8 text, 'g' = Pango/markup,
+   * 'x' = xdxf. Determined from `sametypesequence` or the per-entry type prefix.
+   * UI uses this to decide whether to render as HTML or escape as text.
+   */
+  type?: string;
 }
 
 /**
@@ -81,12 +88,29 @@ export interface CachedBlock {
 }
 
 /**
- * DictZip header information
+ * DictZip header information (parsed from the gzip RA extra field).
+ *
+ * A dictzip file is a normal gzip stream whose payload is split into fixed-size
+ * UNCOMPRESSED chunks (`chunkLength` bytes each, except possibly the last). Each
+ * chunk is an independent raw-DEFLATE stream, so any chunk can be inflated in
+ * isolation for random access. The RA extra field stores the COMPRESSED length
+ * of every chunk; absolute compressed offsets are the running sum of those
+ * lengths starting at `dataStart`.
  */
 export interface DictZipHeader {
-  blockSize: number;
-  blockOffsets: Uint32Array;
-  totalBlocks: number;
+  /** Uncompressed bytes per chunk (CHLEN). Typically 58315. */
+  chunkLength: number;
+  /** Number of chunks (CHCNT). */
+  chunkCount: number;
+  /** Compressed byte length of each chunk (CHCNT entries). */
+  chunkCompLengths: Uint32Array;
+  /**
+   * Absolute compressed start offset of each chunk within the .dict.dz file.
+   * cumOffsets[i] = dataStart + Σ chunkCompLengths[0..i-1].
+   */
+  cumOffsets: Uint32Array;
+  /** Byte offset where compressed chunk data begins (after the full gzip header). */
+  dataStart: number;
 }
 
 /**

@@ -8,7 +8,7 @@
 
 export class ShaekeebRangeFetcher {
   private url: string;
-  private cache: Map<number, Uint8Array> = new Map(); // Simple in-memory cache
+  private cache: Map<string, Uint8Array> = new Map(); // Simple in-memory cache
 
   constructor(url: string) {
     this.url = url;
@@ -19,7 +19,10 @@ export class ShaekeebRangeFetcher {
    * Uses HTTP Range header for efficient partial downloads
    */
   public async fetchRange(start: number, end: number): Promise<Uint8Array> {
-    const cacheKey = (start << 32) | end; // Simple cache key
+    // String key: JS bitwise ops are 32-bit, so `(start << 32) | end` overflowed
+    // and collided for any offset >= 4GB / any large end. Offsets here are
+    // routinely in the tens of MB, well past the 32-bit boundary once shifted.
+    const cacheKey = `${start}-${end}`;
 
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;

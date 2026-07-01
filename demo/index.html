@@ -3,1149 +3,139 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HyperDict - Ultra-fast Dictionary Engine</title>
+    <title>HyperDict — Ultra-fast StarDict Dictionary for the Browser</title>
     <style>
-      /* ============================================
-       GLOBAL STYLES - Black and White Design
-       ============================================ */
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
+      * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
-          sans-serif;
-        background: #ffffff;
-        color: #000000;
-        line-height: 1.6;
-        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #fff; color: #000; line-height: 1.7; padding: 24px;
       }
-
-      /* ============================================
-       DEMO CONTENT AREA
-       ============================================ */
-      .demo-container {
-        max-width: 1000px;
-        margin: 0 auto;
+      .wrap { max-width: 860px; margin: 0 auto; }
+      header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 28px; }
+      header h1 { font-size: 2.2em; }
+      header p { color: #444; }
+      .status {
+        display: inline-block; margin-top: 12px; padding: 6px 14px;
+        border: 1px solid #000; border-radius: 4px; font-weight: 600; font-size: 0.9em;
       }
-
-      .demo-header {
-        text-align: center;
-        margin-bottom: 40px;
-        padding: 20px 0;
-        border-bottom: 2px solid #000000;
-      }
-
-      .demo-header h1 {
-        font-size: 2.5em;
-        margin-bottom: 10px;
-        color: #000000;
-      }
-
-      .demo-header p {
-        font-size: 1.1em;
-        color: #333333;
-        margin-bottom: 15px;
-      }
-
-      .demo-content {
-        background: #f8f8f8;
-        padding: 30px;
-        border: 1px solid #e0e0e0;
-        margin-bottom: 20px;
-        border-radius: 4px;
-      }
-
-      .demo-section {
-        margin-bottom: 30px;
-      }
-
-      .demo-section h2 {
-        font-size: 1.4em;
-        color: #000000;
-        margin-bottom: 15px;
-        border-bottom: 1px solid #cccccc;
-        padding-bottom: 10px;
-      }
-
-      .demo-text {
-        font-size: 1.05em;
-        color: #222222;
-        line-height: 1.8;
-        margin-bottom: 15px;
-      }
-
-      .demo-text strong {
-        font-weight: 600;
-        color: #000000;
-      }
-
-      .demo-interaction-info {
-        background: #ffffff;
-        border-left: 4px solid #000000;
-        padding: 15px;
-        margin: 15px 0;
-        border-radius: 2px;
-      }
-
-      .demo-interaction-info strong {
-        color: #000000;
-      }
-
-      /* ============================================
-       POPUP STYLES - Dictionary Lookup Popup
-       ============================================ */
-      .popup-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: none;
-        z-index: 10000;
-        animation: fadeIn 0.2s ease-out;
-      }
-
-      .popup-overlay.active {
-        display: block;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-
-      .popup-container {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 450px;
-        max-width: 90vw;
-        background: #ffffff;
-        border: 2px solid #000000;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        border-radius: 4px;
-        display: none;
-        z-index: 10001;
-        animation: slideUp 0.3s ease-out;
-        max-height: 80vh;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .popup-container.active {
-        display: flex;
-      }
-
-      @keyframes slideUp {
-        from {
-          transform: translateY(50px);
-          opacity: 0;
-        }
-        to {
-          transform: translateY(0);
-          opacity: 1;
-        }
-      }
-
-      /* Close button - top left */
-      .popup-close-btn {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        width: 30px;
-        height: 30px;
-        background: none;
-        border: 1px solid #000000;
-        font-size: 1.5em;
-        color: #000000;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 2px;
-        transition: all 0.2s ease;
-        z-index: 10002;
-      }
-
-      .popup-close-btn:hover {
-        background: #000000;
-        color: #ffffff;
-      }
-
-      /* Dictionary tabs - top right */
-      .popup-tabs {
-        display: flex;
-        gap: 0;
-        border-bottom: 2px solid #000000;
-        margin-left: 40px;
-        margin-right: 0;
-        overflow-x: auto;
-        background: #ffffff;
-      }
-
-      .popup-tab {
-        padding: 12px 16px;
-        background: none;
-        border: none;
-        border-bottom: 3px solid transparent;
-        cursor: pointer;
-        color: #666666;
-        font-weight: 600;
-        font-size: 0.95em;
-        white-space: nowrap;
-        margin-bottom: -2px;
-        transition: all 0.2s ease;
-      }
-
-      .popup-tab:hover {
-        color: #000000;
-      }
-
-      .popup-tab.active {
-        color: #000000;
-        border-bottom-color: #000000;
-        background: #f5f5f5;
-      }
-
-      /* Search input area */
-      .popup-search {
-        padding: 15px;
-        border-bottom: 1px solid #e0e0e0;
-        background: #ffffff;
-      }
-
-      .popup-search-input {
-        width: 100%;
-        padding: 10px 12px;
-        border: 1px solid #000000;
-        border-radius: 3px;
-        font-size: 0.95em;
-        color: #000000;
-        background: #ffffff;
-        font-family: inherit;
-      }
-
-      .popup-search-input:focus {
-        outline: none;
-        border-color: #000000;
-        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
-      }
-
-      .popup-search-input::placeholder {
-        color: #999999;
-      }
-
-      /* Content area */
-      .popup-content {
-        flex: 1;
-        overflow-y: auto;
-        padding: 15px;
-        background: #ffffff;
-      }
-
-      .popup-tab-content {
-        display: none;
-      }
-
-      .popup-tab-content.active {
-        display: block;
-      }
-
-      .definition-result {
-        margin-bottom: 15px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #e0e0e0;
-      }
-
-      .definition-result:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
-      }
-
-      .definition-word {
-        font-weight: 700;
-        font-size: 1.1em;
-        color: #000000;
-        margin-bottom: 8px;
-      }
-
-      .definition-text {
-        color: #333333;
-        font-size: 0.95em;
-        line-height: 1.7;
-        max-height: 300px;
-        overflow-y: auto;
-        padding: 10px;
-        background: #f9f9f9;
-        border-left: 2px solid #cccccc;
-        border-radius: 2px;
-      }
-
-      .status-message {
-        padding: 12px;
-        margin: 10px 0;
-        border-radius: 3px;
-        font-weight: 600;
-        text-align: center;
-      }
-
-      .status-loading {
-        background: #f0f0f0;
-        color: #000000;
-        border: 1px solid #cccccc;
-      }
-
-      .status-success {
-        background: #f0f0f0;
-        color: #000000;
-        border: 1px solid #000000;
-      }
-
-      .status-error {
-        background: #ffe6e6;
-        color: #000000;
-        border: 1px solid #000000;
-      }
-
-      .no-results {
-        text-align: center;
-        color: #999999;
-        padding: 30px 15px;
-        font-size: 0.95em;
-      }
-
-      /* ============================================
-       LOADER ANIMATION
-       ============================================ */
-      .loader {
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        border: 2px solid #cccccc;
-        border-top: 2px solid #000000;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-      }
-
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
-      /* ============================================
-       STATS PANEL
-       ============================================ */
-      .stats-panel {
-        background: #f0f0f0;
-        border: 1px solid #e0e0e0;
-        padding: 15px;
-        margin-top: 15px;
-        border-radius: 3px;
-        font-size: 0.9em;
-        color: #333333;
-      }
-
-      .stats-panel strong {
-        color: #000000;
-      }
-
-      .stat-line {
-        margin: 8px 0;
-        display: flex;
-        justify-content: space-between;
-      }
-
-      /* ============================================
-       RESPONSIVE DESIGN
-       ============================================ */
-      @media (max-width: 768px) {
-        .popup-container {
-          width: calc(100vw - 20px);
-          bottom: 10px;
-          right: 10px;
-          border-radius: 0;
-        }
-
-        .demo-header h1 {
-          font-size: 1.8em;
-        }
-
-        .demo-content {
-          padding: 20px;
-        }
-
-        .popup-tabs {
-          overflow-x: auto;
-        }
-
-        .popup-tab {
-          padding: 10px 12px;
-          font-size: 0.85em;
-        }
-      }
-
-      @media (max-height: 600px) {
-        .popup-container {
-          max-height: 70vh;
-        }
-      }
+      .card { border: 1px solid #e0e0e0; background: #fafafa; border-radius: 6px; padding: 22px; margin-bottom: 20px; }
+      .card h2 { font-size: 1.2em; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 14px; }
+      .hint { border-left: 4px solid #000; background: #fff; padding: 12px 14px; margin: 14px 0; border-radius: 0 4px 4px 0; }
+      .urdu { direction: rtl; font-size: 1.5em; line-height: 2.1; }
+      .en strong, .urdu strong { font-weight: 700; }
+      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+      .stat { border: 1px solid #e0e0e0; border-radius: 6px; padding: 14px; text-align: center; background: #fff; }
+      .stat b { display: block; font-size: 1.5em; }
+      .stat span { color: #777; font-size: 0.82em; }
+      footer { text-align: center; color: #666; font-size: 0.85em; margin-top: 30px; }
     </style>
   </head>
   <body>
-    <!-- Demo Content Area -->
-    <div class="demo-container">
-      <div class="demo-header">
-        <h1>⚡ HyperDict Engine</h1>
-        <p>Ultra-fast StarDict Dictionary for the Browser</p>
-      </div>
+    <div class="wrap">
+      <header>
+        <h1>⚡ HyperDict</h1>
+        <p>GoldenDict-style StarDict engine — pure frontend, dictzip random access</p>
+        <div id="status" class="status">Loading dictionaries…</div>
+      </header>
 
-      <div class="demo-content">
-        <!-- Demo Section 1 -->
-        <div class="demo-section">
-          <h2>📚 How to Use</h2>
-          <p class="demo-text">
-            Try clicking on any word in this document, or select text and a context menu will
-            appear.
-            <strong>For this demo, click on any word</strong> to see dictionary definitions in the
-            popup.
-          </p>
-          <div class="demo-interaction-info">
-            <strong>💡 Interaction:</strong> Click on a word → Lookup popup appears → Browse
-            definitions from different dictionaries
-          </div>
-        </div>
-
-        <!-- Demo Section 2 -->
-        <div class="demo-section">
-          <h2>Sample Words to Try</h2>
-          <p class="demo-text">
-            Click on any of these words to see the dictionary popup:
-            <strong>book</strong>, <strong>dictionary</strong>, <strong>knowledge</strong>,
-            <strong>science</strong>,
-            <strong>language</strong>
-          </p>
-          <p class="demo-text">
-            The system supports Urdu dictionaries as well. Try words like:
-            <strong>علم</strong> (knowledge), <strong>کتاب</strong> (book),
-            <strong>لغت</strong> (dictionary)
-          </p>
-        </div>
-
-        <!-- Demo Section 3 -->
-        <div class="demo-section">
-          <h2>🔍 Features</h2>
-          <p class="demo-text">
-            ✓ <strong>Ultra-fast lookups</strong> - Binary search in &lt;1ms<br />
-            ✓ <strong>Multiple dictionaries</strong> - View tabs for each dictionary<br />
-            ✓ <strong>Lazy loading</strong> - Only loads indices on demand<br />
-            ✓ <strong>Memory efficient</strong> - ~25MB max memory usage<br />
-            ✓ <strong>Mobile friendly</strong> - Works on low-end Android devices<br />
-            ✓ <strong>Black &amp; white UI</strong> - Clean, minimal design
-          </p>
-        </div>
-
-        <!-- Demo Section 4 -->
-        <div class="demo-section">
-          <h2>📖 Supported Dictionaries</h2>
-          <p class="demo-text">Currently loaded dictionaries:</p>
-          <ul id="dictList" style="margin-left: 20px; color: #333333">
-            <li style="margin: 8px 0">UrduLughat - Urdu to Urdu Dictionary</li>
-            <li style="margin: 8px 0">UDB Lughat Kabeer - Comprehensive Urdu Dictionary</li>
-            <li style="margin: 8px 0">Thesaurus - Synonyms and Word Relationships</li>
-          </ul>
-        </div>
-
-        <!-- Stats Section -->
-        <div class="demo-section">
-          <h2>📊 Engine Statistics</h2>
-          <div class="stats-panel">
-            <div class="stat-line">
-              <span>Initialization Status:</span>
-              <span id="initStatus" style="font-weight: bold">Loading...</span>
-            </div>
-            <div class="stat-line">
-              <span>Dictionaries Loaded:</span>
-              <span id="dictCount" style="font-weight: bold">0</span>
-            </div>
-            <div class="stat-line">
-              <span>Total Words Indexed:</span>
-              <span id="wordCount" style="font-weight: bold">0</span>
-            </div>
-            <div class="stat-line">
-              <span>Memory Usage:</span>
-              <span id="memoryUsage" style="font-weight: bold">0 MB</span>
-            </div>
-            <div class="stat-line">
-              <span>Last Lookup Time:</span>
-              <span id="lookupTime" style="font-weight: bold">-</span>
-            </div>
-          </div>
+      <div class="card">
+        <h2>How to look up a word</h2>
+        <div class="hint">
+          <strong>Desktop:</strong> select any word/phrase below → click the 🔍 chip that appears.<br />
+          <strong>Mobile:</strong> long-press a word.
         </div>
       </div>
+
+      <div class="card">
+        <h2>اردو نمونہ (Urdu sample — select a word)</h2>
+        <p class="urdu">
+          <strong>علم</strong> روشنی ہے اور <strong>کتاب</strong> بہترین دوست ہے۔
+          ہر <strong>لغت</strong> زبان کا خزانہ ہے، اور <strong>عقل</strong> انسان کی پہچان ہے۔
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>English sample (select a word)</h2>
+        <p class="en">
+          A good <strong>dictionary</strong> turns reading into discovery. Try selecting
+          <strong>knowledge</strong>, <strong>language</strong>, or <strong>science</strong>.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Engine statistics</h2>
+        <div class="stats">
+          <div class="stat"><b id="dictCount">0</b><span>Dictionaries</span></div>
+          <div class="stat"><b id="wordCount">0</b><span>Words indexed</span></div>
+          <div class="stat"><b id="memUse">0 MB</b><span>Index memory</span></div>
+          <div class="stat"><b id="lastTime">—</b><span>Last lookup</span></div>
+        </div>
+      </div>
+
+      <footer>HyperDict v0.1.0 · Built by Shakeeb Ahmad · MIT</footer>
     </div>
 
-    <!-- Popup Overlay -->
-    <div id="popupOverlay" class="popup-overlay"></div>
-
-    <!-- Dictionary Lookup Popup -->
-    <div id="dictionaryPopup" class="popup-container">
-      <!-- Close button -->
-      <button id="closePopupBtn" class="popup-close-btn" title="Close" aria-label="Close popup">
-        ✕
-      </button>
-
-      <!-- Dictionary tabs -->
-      <div id="popupTabs" class="popup-tabs"></div>
-
-      <!-- Search input -->
-      <div class="popup-search">
-        <input
-          type="text"
-          id="popupSearchInput"
-          class="popup-search-input"
-          placeholder="Search or modify..."
-          aria-label="Search or modify word"
-        />
-      </div>
-
-      <!-- Content area for definitions -->
-      <div id="popupContent" class="popup-content"></div>
-    </div>
-
-    <!-- Load fflate decompression library (required for .dict.dz reading) -->
-    <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
-
-    <!-- Load HyperDict bundled library -->
+    <!-- Core engine (fflate is bundled in) + reusable UI layer -->
     <script src="./hyperdict.min.js"></script>
-
+    <script src="./hyperdict-ui.min.js"></script>
     <script>
-      // ============================================
-      // GLOBAL STATE
-      // ============================================
-      let engine = null;
-      let dictionaryConfigs = [];
-      let currentPopupWord = null;
-      let activeDictionaryTab = null;
-
-      // Dictionary configurations
-      const DICTIONARY_CONFIGS = [
+      const DICTS = [
         {
           name: 'UrduLughat',
-          displayName: 'Urdu Lughat',
+          label: 'Urdu Lughat',
           path: 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/UrduLughatOffline/',
         },
         {
           name: 'UDB_Lughat_Kabeer',
-          displayName: 'UDB Lughat Kabeer',
-          path: 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu//UDBLite/',
+          label: 'UDB Lughat Kabeer',
+          path: 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/UDBLite/',
         },
         {
           name: 'thesaurus',
-          displayName: 'Thesaurus',
-          path: 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu//Thesaurus/',
+          label: 'Thesaurus',
+          path: 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/Thesaurus/',
         },
       ];
 
-      // ============================================
-      // FILE LOADING UTILITIES
-      // ============================================
-      /**
-       * Load dictionary files from remote URL
-       * Supports: .ifo, .idx, .dict.dz, .syn
-       */
-      async function loadDictionaryFiles(dictName, basePath) {
+      const $ = (id) => document.getElementById(id);
+
+      (async function init() {
         try {
-          console.log(`[FILE LOADING] Loading files for: ${dictName}`);
+          const engine = new HyperDict.HyperDict();
+          for (const d of DICTS) engine.registerDictionary({ name: d.name, path: d.path });
 
-          // Files to load for each dictionary
-          const files = [
-            { name: 'ifo', type: 'text' },
-            { name: 'idx', type: 'arraybuffer' },
-            { name: 'dict.dz', type: 'arraybuffer' },
-            { name: 'syn', type: 'arraybuffer', optional: true },
-          ];
-
-          const loadedFiles = {};
-
-          for (const file of files) {
-            const url = `${basePath}${basePath.endsWith('/') ? '' : '/'}${dictName}.${file.name}`;
-
-            try {
-              console.log(`[FILE LOADING] Fetching: ${url}`);
-              const response = await fetch(url);
-
-              if (!response.ok) {
-                if (file.optional) {
-                  console.log(`[FILE LOADING] Optional file not found (${file.name}): ${url}`);
-                  continue;
-                }
-                throw new Error(`HTTP ${response.status}`);
-              }
-
-              const data =
-                file.type === 'text' ? await response.text() : await response.arrayBuffer();
-
-              loadedFiles[file.name] = data;
-              console.log(
-                `[FILE LOADING] ✓ Loaded: ${file.name} (${
-                  file.type === 'text'
-                    ? data.length + ' chars'
-                    : (data.byteLength / 1024).toFixed(1) + ' KB'
-                })`
-              );
-            } catch (error) {
-              if (file.optional) {
-                console.log(`[FILE LOADING] Skipped optional file: ${file.name}`);
-              } else {
-                throw error;
-              }
-            }
-          }
-
-          return loadedFiles;
-        } catch (error) {
-          console.error(`[FILE LOADING] Error loading files for ${dictName}:`, error);
-          throw error;
-        }
-      }
-
-      // ============================================
-      // ENGINE INITIALIZATION
-      // ============================================
-      /**
-       * Initialize HyperDict engine
-       */
-      async function initializeEngine() {
-        try {
-          console.log('[INIT] ========================================');
-          console.log('[INIT] Starting HyperDict initialization...');
-          console.log('[INIT] ========================================');
-
-          // Update UI status
-          updateInitStatus('Initializing engine...');
-
-          // Step 1: Check if HyperDict is available
-          console.log('[INIT] STEP 1: Checking HyperDict availability');
-          if (!window.HyperDict) {
-            throw new Error('window.HyperDict is not defined. Bundle may not have loaded.');
-          }
-          console.log('[INIT] ✓ window.HyperDict found');
-          console.log('[INIT] - Available properties:', Object.keys(window.HyperDict));
-
-          // Step 2: Create engine instance
-          console.log('[INIT] STEP 2: Creating engine instance');
-          engine = new window.HyperDict.HyperDict();
-          console.log('[INIT] ✓ Engine instance created');
-          console.log('[INIT] - Engine type:', typeof engine);
-          console.log(
-            '[INIT] - Engine methods:',
-            Object.getOwnPropertyNames(Object.getPrototypeOf(engine))
-          );
-
-          // Step 3: Register all dictionaries
-          console.log('[INIT] STEP 3: Registering dictionaries');
-          for (const config of DICTIONARY_CONFIGS) {
-            console.log(`[INIT] Registering: ${config.name}`);
-            console.log(`[INIT] - Display name: ${config.displayName}`);
-            console.log(`[INIT] - Path: ${config.path}`);
-            updateInitStatus(`Loading: ${config.displayName}...`);
-
-            engine.registerDictionary({
-              name: config.name,
-              path: config.path,
-            });
-            console.log(`[INIT] ✓ ${config.name} registered`);
-          }
-
-          // Step 4: Initialize engine (loads all indices)
-          console.log('[INIT] STEP 4: Initializing engine (loading indices)');
-          updateInitStatus('Loading indices...');
-          console.log('[INIT] - Calling engine.init()...');
+          $('status').textContent = 'Loading indices…';
           await engine.init();
-          console.log('[INIT] ✓ engine.init() completed');
-
-          // Step 5: Verify initialization
-          console.log('[INIT] STEP 5: Verifying initialization');
-          dictionaryConfigs = DICTIONARY_CONFIGS;
 
           const stats = engine.getStats();
-          console.log('[INIT] Engine statistics:');
-          console.log('[INIT] - Initialized:', stats.initialized);
-          console.log('[INIT] - Dictionary count:', stats.dictionaryCount);
-          console.log('[INIT] - Total words:', stats.totalWords);
-          console.log('[INIT] - Memory usage:', (stats.memoryUsage / 1024 / 1024).toFixed(2), 'MB');
-          console.log('[INIT] - Worker supported:', stats.workerSupported);
+          $('dictCount').textContent = stats.dictionaryCount;
+          $('wordCount').textContent = stats.totalWords.toLocaleString();
+          $('memUse').textContent = (stats.memoryUsage / 1048576).toFixed(1) + ' MB';
+          $('status').textContent = '✓ Ready — select a word';
 
-          const dicts = engine.getDictionaries();
-          console.log('[INIT] Loaded dictionaries:');
-          for (const dict of dicts) {
-            console.log(`[INIT] - ${dict.name}:`);
-            console.log(`[INIT]   - Words: ${dict.metadata.wordcount}`);
-            console.log(`[INIT]   - IDX size: ${(dict.metadata.idxfilesize / 1024).toFixed(1)}KB`);
-            if (dict.metadata.bookname) {
-              console.log(`[INIT]   - Book name: ${dict.metadata.bookname}`);
-            }
-          }
+          // Time lookups for the stats panel by wrapping getDefinition.
+          const origGetDef = engine.getDefinition.bind(engine);
+          engine.getDefinition = async (dict, word) => {
+            const t0 = performance.now();
+            const r = await origGetDef(dict, word);
+            $('lastTime').textContent = Math.round(performance.now() - t0) + ' ms';
+            return r;
+          };
 
-          console.log(`[INIT] ✓ Engine initialized with ${dictionaryConfigs.length} dictionaries`);
-
-          // Step 6: Update UI with stats
-          console.log('[INIT] STEP 6: Updating UI');
-          updateEngineStats();
-          updateInitStatus('✓ Ready');
-          console.log('[INIT] ✓ UI updated');
-
-          // Step 7: Enable document interaction
-          console.log('[INIT] STEP 7: Registering event handlers');
-          document.addEventListener('click', handleWordClick);
-          console.log('[INIT] ✓ Document click handler registered');
-
-          console.log('[INIT] ========================================');
-          console.log('[INIT] ✓ Initialization completed successfully');
-          console.log('[INIT] ========================================');
-
-          return true;
-        } catch (error) {
-          console.error('[INIT] ✗ Initialization failed:', error);
-          console.error('[INIT] Error type:', error instanceof Error ? error.name : 'Unknown');
-          console.error('[INIT] Error message:', error.message);
-          if (error instanceof Error) {
-            console.error('[INIT] Stack trace:', error.stack);
-          }
-          updateInitStatus(`✗ Error: ${error.message}`);
-          return false;
-        }
-      }
-
-      // ============================================
-      // UI STATE MANAGEMENT
-      // ============================================
-      /**
-       * Update initialization status in the demo section
-       */
-      function updateInitStatus(message) {
-        const statusEl = document.getElementById('initStatus');
-        if (statusEl) {
-          statusEl.textContent = message;
-        }
-      }
-
-      /**
-       * Update engine statistics display
-       */
-      function updateEngineStats() {
-        if (!engine) return;
-
-        const stats = engine.getStats();
-        const dicts = engine.getDictionaries();
-
-        // Update UI
-        document.getElementById('dictCount').textContent = stats.dictionaryCount;
-        document.getElementById('wordCount').textContent = stats.totalWords.toLocaleString();
-        document.getElementById('memoryUsage').textContent =
-          (stats.memoryUsage / 1024 / 1024).toFixed(2) + ' MB';
-
-        console.log('[STATS]', {
-          dictionaries: stats.dictionaryCount,
-          words: stats.totalWords,
-          memory: (stats.memoryUsage / 1024 / 1024).toFixed(2) + 'MB',
-          workerSupported: stats.workerSupported,
-        });
-      }
-
-      // ============================================
-      // POPUP UI MANAGEMENT
-      // ============================================
-      /**
-       * Open popup for a word
-       */
-      function openPopup(word) {
-        if (!engine) {
-          console.log('[POPUP] Engine not ready');
-          return;
-        }
-
-        console.log('[POPUP] Opening for word:', word);
-        currentPopupWord = word;
-
-        // Update search input
-        const searchInput = document.getElementById('popupSearchInput');
-        searchInput.value = word;
-
-        // Initialize tabs
-        initializePopupTabs();
-
-        // Show popup
-        document.getElementById('popupOverlay').classList.add('active');
-        document.getElementById('dictionaryPopup').classList.add('active');
-
-        // Load first dictionary
-        if (dictionaryConfigs.length > 0) {
-          activeDictionaryTab = dictionaryConfigs[0].name;
-          loadDictionaryDefinition(activeDictionaryTab, word);
-        }
-
-        searchInput.focus();
-      }
-
-      /**
-       * Initialize popup tabs
-       */
-      function initializePopupTabs() {
-        const tabsContainer = document.getElementById('popupTabs');
-        tabsContainer.innerHTML = '';
-
-        dictionaryConfigs.forEach((config, index) => {
-          const tab = document.createElement('button');
-          tab.className = 'popup-tab' + (index === 0 ? ' active' : '');
-          tab.textContent = config.displayName;
-          tab.onclick = () => switchDictionaryTab(config.name);
-          tabsContainer.appendChild(tab);
-        });
-      }
-
-      /**
-       * Switch active dictionary tab
-       */
-      function switchDictionaryTab(dictName) {
-        console.log('[POPUP] Switching to tab:', dictName);
-        activeDictionaryTab = dictName;
-
-        // Update tab styles
-        const tabs = document.querySelectorAll('.popup-tab');
-        tabs.forEach((tab, idx) => {
-          if (dictionaryConfigs[idx].name === dictName) {
-            tab.classList.add('active');
-          } else {
-            tab.classList.remove('active');
-          }
-        });
-
-        // Load definition
-        loadDictionaryDefinition(dictName, currentPopupWord);
-      }
-
-      /**
-       * Load and display definition from a specific dictionary
-       */
-      async function loadDictionaryDefinition(dictName, word) {
-        const contentDiv = document.getElementById('popupContent');
-
-        if (!word.trim()) {
-          console.log('[POPUP] Empty word, skipping');
-          contentDiv.innerHTML = '<div class="no-results">Enter a word to search</div>';
-          return;
-        }
-
-        console.log(`[POPUP] === Starting lookup for "${word}" in ${dictName} ===`);
-        contentDiv.innerHTML =
-          '<div class="status-message status-loading">🔍 Searching... <span class="loader"></span></div>';
-
-        try {
-          const startTime = performance.now();
-
-          // ============ STEP 1: Verify Engine State ============
-          console.log('[POPUP] STEP 1: Engine State');
-          console.log('[POPUP] - Engine initialized:', engine ? 'YES' : 'NO');
-          console.log('[POPUP] - Engine stats:', engine ? engine.getStats() : 'N/A');
-
-          const allDicts = engine.getDictionaries();
-          console.log(
-            '[POPUP] - Loaded dictionaries:',
-            allDicts.map((d) => d.name)
-          );
-          console.log('[POPUP] - Looking for:', dictName);
-
-          // ============ STEP 2: Lookup word ============
-          console.log('[POPUP] STEP 2: Performing lookup');
-          const lookupResult = engine.lookup(word);
-          console.log('[POPUP] - Full lookup result:', lookupResult);
-          console.log('[POPUP] - All results:', JSON.stringify(lookupResult.dictionaries));
-
-          const dictResult = lookupResult.dictionaries.find((d) => d.name === dictName);
-          console.log('[POPUP] - Result for this dict:', dictResult);
-          console.log('[POPUP] - Found:', dictResult?.found);
-
-          if (!dictResult) {
-            console.error(`[POPUP] Dictionary "${dictName}" not found in lookup results!`);
-            contentDiv.innerHTML = `<div class="status-message status-error">✗ Dictionary "${dictName}" not found in engine</div>`;
-            return;
-          }
-
-          if (!dictResult.found) {
-            console.log(`[POPUP] Word "${word}" not found in ${dictName}`);
-            contentDiv.innerHTML = `
-              <div class="definition-result">
-                <div class="definition-word">${escapeHtml(word)}</div>
-                <div class="definition-text">Not found in ${dictName}</div>
-              </div>
-              <div class="status-message status-loading">ℹ️ Word not in this dictionary</div>
-            `;
-            return;
-          }
-
-          // ============ STEP 3: Get definition ============
-          console.log('[POPUP] STEP 3: Getting definition');
-          let definition;
-          try {
-            definition = await engine.getDefinition(dictName, word);
-            console.log('[POPUP] - Raw definition object:', definition);
-            console.log('[POPUP] - Definition content:', definition?.definition);
-            console.log('[POPUP] - Definition length:', definition?.definition?.length);
-          } catch (defError) {
-            console.error('[POPUP] Error in getDefinition call:', defError);
-            throw defError;
-          }
-
-          const endTime = performance.now();
-          const lookupTime = Math.round(endTime - startTime);
-
-          // Update stats
-          document.getElementById('lookupTime').textContent = lookupTime + ' ms';
-
-          // ============ STEP 4: Check definition content ============
-          console.log('[POPUP] STEP 4: Checking definition content');
-          console.log('[POPUP] - Definition exists:', !!definition);
-          console.log('[POPUP] - Definition.definition exists:', !!definition?.definition);
-          console.log(
-            '[POPUP] - Definition.definition is empty:',
-            definition?.definition === '' || definition?.definition === null
-          );
-          console.log('[POPUP] - Definition.definition type:', typeof definition?.definition);
-
-          if (!definition) {
-            console.error('[POPUP] Definition is null/undefined');
-            contentDiv.innerHTML = `<div class="status-message status-error">✗ Definition object is null</div>`;
-            return;
-          }
-
-          if (
-            definition.definition === '' ||
-            definition.definition === null ||
-            definition.definition === undefined
-          ) {
-            console.warn('[POPUP] ⚠️  DEFINITION CONTENT IS EMPTY!');
-            console.warn('[POPUP] Word found but definition is empty');
-            console.warn('[POPUP] Engine status:', engine.getStats());
-
-            contentDiv.innerHTML = `
-              <div class="definition-result">
-                <div class="definition-word">${escapeHtml(word)}</div>
-                <div class="definition-text" style="background: #fff9e6; border-left-color: #ff9800;">
-                  ⚠️ <strong>No definition found</strong><br>
-                  Word exists in index but definition is empty.<br>
-                  <br>
-                  This can happen if:<br>
-                  • The .dict.dz file is not accessible<br>
-                  • The dictionary format is unsupported<br>
-                  • fflate decompression failed<br>
-                  <br>
-                  Check browser console for details.
-                </div>
-              </div>
-              <div class="status-message status-error">ℹ️ Lookup time: ${lookupTime}ms</div>
-            `;
-            return;
-          }
-
-          // ============ STEP 5: Display result ============
-          console.log('[POPUP] STEP 5: Displaying result');
-          contentDiv.innerHTML = `
-            <div class="definition-result">
-              <div class="definition-word">${escapeHtml(word)}</div>
-              <div class="definition-text">${escapeHtml(definition.definition)}</div>
-            </div>
-            <div class="status-message status-success">✓ Found in ${lookupTime}ms</div>
-          `;
-
-          console.log('[POPUP] ✓ Definition loaded successfully:', {
-            word,
-            dictName,
-            time: lookupTime,
+          // Mount the reusable popup + triggers. One call.
+          HyperDictUI.mountHyperDictUI({
+            engine,
+            dictionaries: DICTS.map((d) => ({ name: d.name, label: d.label })),
+            placeholder: 'تلاش کریں',
+            dir: 'rtl',
+            selection: true,
+            longPress: true,
           });
-        } catch (error) {
-          console.error('[POPUP] ✗ Error loading definition:', error);
-          console.error('[POPUP] Error stack:', error instanceof Error ? error.stack : 'No stack');
-          contentDiv.innerHTML = `
-            <div class="status-message status-error">
-              ✗ Error: ${escapeHtml(error.message)}<br>
-              <small>Check browser console for full debug info</small>
-            </div>
-          `;
+        } catch (err) {
+          console.error(err);
+          $('status').textContent = '✗ ' + (err && err.message ? err.message : err);
         }
-      }
-
-      /**
-       * Close popup
-       */
-      function closePopup() {
-        console.log('[POPUP] Closing popup');
-        document.getElementById('popupOverlay').classList.remove('active');
-        document.getElementById('dictionaryPopup').classList.remove('active');
-        currentPopupWord = null;
-      }
-
-      // ============================================
-      // DOCUMENT INTERACTION
-      // ============================================
-      /**
-       * Handle word click on document
-       */
-      function handleWordClick(event) {
-        if (!engine) return;
-
-        // Don't trigger if clicking inside popup
-        const popup = document.getElementById('dictionaryPopup');
-        if (popup.contains(event.target)) {
-          return;
-        }
-
-        // Get clicked element
-        const element = event.target;
-
-        // Check if it's inside clickable content
-        if (!element.closest('.demo-text') && !element.closest('.demo-section')) {
-          return;
-        }
-
-        // Extract word from click
-        let word = '';
-
-        if (element.nodeType === Node.TEXT_NODE) {
-          // Clicked on text node
-          const text = element.textContent;
-          const offset = event.offsetX !== undefined ? event.offsetX : 0;
-          word = extractWordAtOffset(text, offset);
-        } else if (element.nodeType === Node.ELEMENT_NODE) {
-          // Clicked on element - get full text
-          const text = element.textContent;
-          if (text.length > 0) {
-            // Try to get word at click position
-            word = extractWordFromText(text, event);
-          }
-        }
-
-        if (word.length > 0) {
-          console.log('[CLICK] Word detected:', word);
-          openPopup(word);
-        }
-      }
-
-      /**
-       * Extract word from text at given offset
-       */
-      function extractWordAtOffset(text, offset) {
-        let start = offset;
-        let end = offset;
-
-        // Find word boundaries
-        while (start > 0 && /\w/.test(text[start - 1])) {
-          start--;
-        }
-        while (end < text.length && /\w/.test(text[end])) {
-          end++;
-        }
-
-        return text.substring(start, end).trim();
-      }
-
-      /**
-       * Extract word from text (fallback)
-       */
-      function extractWordFromText(text, event) {
-        const words = text.match(/\b\w+\b/g) || [];
-        if (words.length > 0) {
-          return words[0]; // Return first word
-        }
-        return '';
-      }
-
-      /**
-       * Escape HTML special characters
-       */
-      function escapeHtml(text) {
-        const map = {
-          '&': '&amp;',
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#039;',
-        };
-        return String(text).replace(/[&<>"']/g, (m) => map[m]);
-      }
-
-      // ============================================
-      // EVENT LISTENERS
-      // ============================================
-      document.addEventListener('DOMContentLoaded', () => {
-        console.log('[APP] ========================================');
-        console.log('[APP] DOMContentLoaded fired');
-        console.log('[APP] ========================================');
-
-        // Check HyperDict availability
-        console.log('[APP] Checking dependencies:');
-        console.log('[APP] - window.HyperDict:', !!window.HyperDict ? 'FOUND' : 'NOT FOUND');
-        if (window.HyperDict) {
-          console.log('[APP] - HyperDict properties:', Object.keys(window.HyperDict));
-        }
-
-        // Close button
-        document.getElementById('closePopupBtn').addEventListener('click', closePopup);
-        console.log('[APP] ✓ Close button handler registered');
-
-        // Search input - re-search on enter
-        document.getElementById('popupSearchInput').addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
-            const word = document.getElementById('popupSearchInput').value.trim();
-            console.log('[APP] Enter pressed, searching for:', word);
-            if (word && activeDictionaryTab) {
-              currentPopupWord = word;
-              loadDictionaryDefinition(activeDictionaryTab, word);
-            }
-          }
-        });
-        console.log('[APP] ✓ Search input handler registered');
-
-        // Close on overlay click
-        document.getElementById('popupOverlay').addEventListener('click', (e) => {
-          if (e.target === document.getElementById('popupOverlay')) {
-            closePopup();
-          }
-        });
-        console.log('[APP] ✓ Overlay click handler registered');
-
-        // ESC key to close
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') {
-            closePopup();
-          }
-        });
-        console.log('[APP] ✓ ESC key handler registered');
-
-        console.log('[APP] All event handlers registered');
-        console.log('[APP] ========================================');
-        console.log('[APP] Starting engine initialization...');
-        console.log('[APP] ========================================');
-
-        // Initialize engine
-        initializeEngine();
-      });
-
-      console.log('[APP] Script loaded and ready');
+      })();
     </script>
   </body>
 </html>
