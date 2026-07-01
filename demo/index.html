@@ -100,6 +100,10 @@
           const engine = new HyperDict.HyperDict({ persist: true });
           for (const d of DICTS) engine.registerDictionary(d);
 
+          // Restore any dictionaries the user added, and their enabled/disabled
+          // choices, BEFORE init() so only the right set is loaded.
+          HyperDictUI.restoreDictionaryState(engine);
+
           $('status').textContent = 'Loading indices…';
           await engine.init();
 

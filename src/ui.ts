@@ -6,7 +6,7 @@
  * bundle. The core engine lives in the separate `hyperdict` entry.
  */
 
-export { mountHyperDictUI } from './ui/index';
+export { mountHyperDictUI, restoreDictionaryState } from './ui/index';
 export type { MountOptions, MountedUI } from './ui/index';
 export { ShakeebDictPopup, attachTriggers, SearchHistory, ManageDictionariesPanel } from './ui/index';
 export { prettifyPlainText, resolveLinkWord, escapeHtml } from './ui/index';
@@ -18,5 +18,6 @@ export type {
   TriggerOptions,
   HistoryOptions,
   ManageOptions,
+  ManageRow,
   DefinitionTransform,
 } from './ui/index';

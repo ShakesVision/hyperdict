@@ -159,7 +159,8 @@ export class TypedIndexReader {
         ? this.index.wordOffsets[wordIndex + 1]
         : this.index.wordsBuffer.length;
 
-    return this.index.wordsBuffer.slice(startOffset, endOffset);
+    // subarray = zero-copy view; callers only read these bytes.
+    return this.index.wordsBuffer.subarray(startOffset, endOffset);
   }
 
   /**

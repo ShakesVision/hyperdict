@@ -5,8 +5,11 @@
  * Wires the reusable pieces together:
  *   - builds tab metadata (label / direction / font) from each dictionary's config
  *   - powers the ⓘ info panel from the .ifo metadata
- *   - persists recent searches (localStorage) and end-user-added dictionaries
- *   - opens the Manage panel, backed by engine.addDictionary/removeDictionary
+ *   - persists recent searches + the dictionary set (custom dicts + disabled state)
+ *   - opens the Manage panel: enable/disable, add, delete (custom), reset
+ *
+ * For persistence of the dictionary set across reloads, call
+ * `restoreDictionaryState(engine)` BEFORE `engine.init()` (see its docs).
  */
 
 import type { HyperDict } from '../core/engine';
@@ -14,10 +17,12 @@ import type { DictionaryConfig } from '../core/types';
 import { ShakeebDictPopup, type PopupTab, type DictInfo } from './popup';
 import { attachTriggers } from './triggers';
 import { SearchHistory } from './history';
-import { ManageDictionariesPanel } from './manage';
+import { ManageDictionariesPanel, type ManageRow } from './manage';
 import type { DefinitionTransform } from './format';
 
 const RTL_LANGS = new Set(['ur', 'ar', 'fa', 'he', 'ps', 'sd', 'ug', 'ckb']);
+const DEFAULT_CONFIG_KEY = 'hyperdict:dicts';
+const DEFAULT_DISABLED_KEY = 'hyperdict:disabled';
 
 export interface MountOptions {
   engine: HyperDict;
@@ -36,8 +41,10 @@ export interface MountOptions {
   attribution?: boolean | { text: string; url?: string };
   /** Show the Manage-dictionaries panel (＋ button). Default true. */
   manage?: boolean;
-  /** localStorage key to persist end-user-added dictionaries. Default 'hyperdict:dicts'. null = off. */
+  /** localStorage key for custom dictionaries. Default 'hyperdict:dicts'. null = off. */
   persistConfigKey?: string | null;
+  /** localStorage key for the disabled-set. Default 'hyperdict:disabled'. null = off. */
+  disabledKey?: string | null;
   root?: HTMLElement;
   selection?: boolean;
   longPress?: boolean;
@@ -58,11 +65,64 @@ function dirFor(config: DictionaryConfig, fallback: 'rtl' | 'ltr'): 'rtl' | 'ltr
   return fallback;
 }
 
+/**
+ * Restore a previously-persisted dictionary set. Registers custom dictionaries
+ * (lazily) and marks disabled ones, so a following `engine.init()` loads exactly
+ * the right set (no load-then-unload). Safe to call with no stored state.
+ *
+ * Call this AFTER registering your default dictionaries and BEFORE `init()`:
+ *
+ *   DEFAULTS.forEach((d) => engine.registerDictionary(d));
+ *   restoreDictionaryState(engine);
+ *   await engine.init();
+ */
+export function restoreDictionaryState(
+  engine: HyperDict,
+  opts: { persistConfigKey?: string | null; disabledKey?: string | null } = {}
+): void {
+  if (typeof localStorage === 'undefined') return;
+  const cfgKey = opts.persistConfigKey === undefined ? DEFAULT_CONFIG_KEY : opts.persistConfigKey;
+  const disKey = opts.disabledKey === undefined ? DEFAULT_DISABLED_KEY : opts.disabledKey;
+
+  if (cfgKey) {
+    try {
+      const raw = localStorage.getItem(cfgKey);
+      const arr: unknown = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(arr)) {
+        for (const c of arr as DictionaryConfig[]) {
+          if (c && c.name && !engine.hasConfig(c.name)) {
+            engine.registerDictionary(c, 'custom');
+          }
+        }
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }
+
+  if (disKey) {
+    try {
+      const raw = localStorage.getItem(disKey);
+      const arr: unknown = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(arr)) {
+        for (const name of arr as string[]) {
+          if (typeof name === 'string' && engine.hasConfig(name)) {
+            void engine.setEnabled(name, false);
+          }
+        }
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+  }
+}
+
 export function mountHyperDictUI(options: MountOptions): MountedUI {
   const { engine } = options;
   const defaultDir = options.dir ?? 'rtl';
-  const persistKey =
-    options.persistConfigKey === undefined ? 'hyperdict:dicts' : options.persistConfigKey;
+  const cfgKey =
+    options.persistConfigKey === undefined ? DEFAULT_CONFIG_KEY : options.persistConfigKey;
+  const disKey = options.disabledKey === undefined ? DEFAULT_DISABLED_KEY : options.disabledKey;
 
   const history = new SearchHistory({
     limit: options.historyLimit ?? 50,
@@ -92,12 +152,18 @@ export function mountHyperDictUI(options: MountOptions): MountedUI {
     };
   };
 
-  const persistConfigs = (): void => {
-    if (!persistKey || typeof localStorage === 'undefined') return;
+  const persist = (): void => {
+    if (typeof localStorage === 'undefined') return;
     try {
-      localStorage.setItem(persistKey, JSON.stringify(engine.exportConfig()));
+      if (cfgKey) {
+        localStorage.setItem(cfgKey, JSON.stringify(engine.exportConfig('custom')));
+      }
+      if (disKey) {
+        const disabled = engine.listDictionaries().filter((d) => !d.enabled).map((d) => d.name);
+        localStorage.setItem(disKey, JSON.stringify(disabled));
+      }
     } catch {
-      /* ignore */
+      /* ignore quota/availability errors */
     }
   };
 
@@ -122,32 +188,28 @@ export function mountHyperDictUI(options: MountOptions): MountedUI {
 
   if (manageEnabled) {
     managePanel = new ManageDictionariesPanel({
-      list: () => engine.getDictionaries().map((d) => ({ name: d.name, label: d.config.label || d.name })),
+      list: (): ManageRow[] =>
+        engine
+          .listDictionaries()
+          .map((d) => ({ name: d.name, label: d.label, origin: d.origin, enabled: d.enabled })),
+      setEnabled: async (name, enabled) => {
+        await engine.setEnabled(name, enabled);
+        persist();
+      },
+      remove: async (name) => {
+        await engine.purgeDictionary(name);
+        persist();
+      },
+      reset: async () => {
+        await engine.resetToDefaults();
+        persist();
+      },
       add: async (config) => {
         await engine.addDictionary(config);
-        persistConfigs();
-      },
-      remove: (name) => {
-        engine.removeDictionary(name);
-        persistConfigs();
+        persist();
       },
       onChange: refresh,
     });
-  }
-
-  // Restore any previously end-user-added dictionaries (additive; skips existing).
-  if (persistKey && typeof localStorage !== 'undefined') {
-    try {
-      const raw = localStorage.getItem(persistKey);
-      if (raw) {
-        const stored: unknown = JSON.parse(raw);
-        if (Array.isArray(stored)) {
-          void engine.importConfig(stored as DictionaryConfig[]).then(refresh);
-        }
-      }
-    } catch {
-      /* ignore */
-    }
   }
 
   const detachTriggers = attachTriggers({
@@ -178,6 +240,6 @@ export type { TriggerOptions } from './triggers';
 export { SearchHistory } from './history';
 export type { HistoryOptions } from './history';
 export { ManageDictionariesPanel } from './manage';
-export type { ManageOptions } from './manage';
+export type { ManageOptions, ManageRow } from './manage';
 export { prettifyPlainText, resolveLinkWord, escapeHtml } from './format';
 export type { DefinitionTransform } from './format';

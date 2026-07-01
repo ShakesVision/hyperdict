@@ -132,6 +132,9 @@ export class ShaekeebIfoParser {
       description: metadata['description'],
       date: metadata['date'],
       sametypesequence: metadata['sametypesequence'],
+      idxoffsetbits: metadata['idxoffsetbits']
+        ? parseInt(metadata['idxoffsetbits'], 10)
+        : undefined,
     };
   }
 

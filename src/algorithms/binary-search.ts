@@ -91,7 +91,8 @@ export class ShaekeebBinarySearch {
         ? this.index.wordOffsets[wordIndex + 1]
         : this.index.wordsBuffer.length;
 
-    const wordBytes = this.index.wordsBuffer.slice(wordStart, wordEnd);
+    // subarray = view (no copy); we only read it here.
+    const wordBytes = this.index.wordsBuffer.subarray(wordStart, wordEnd);
 
     return this.compareByteArrays(wordBytes, searchBytes);
   }
@@ -190,7 +191,7 @@ export class ShaekeebBinarySearch {
       return false;
     }
 
-    const wordBytes = this.index.wordsBuffer.slice(wordStart, wordStart + prefixBytes.length);
+    const wordBytes = this.index.wordsBuffer.subarray(wordStart, wordStart + prefixBytes.length);
     return this.arraysEqual(wordBytes, prefixBytes);
   }
 
@@ -221,24 +222,61 @@ export class ShaekeebBinarySearch {
         ? this.index.wordOffsets[wordIndex + 1]
         : this.index.wordsBuffer.length;
 
-    const wordBytes = this.index.wordsBuffer.slice(wordStart, wordEnd);
+    const wordBytes = this.index.wordsBuffer.subarray(wordStart, wordEnd);
     return this.decoder.decode(wordBytes);
   }
 
   /**
-   * Case-insensitive search
-   * Converts search term to lowercase for comparison
+   * Case-insensitive lookup — an **O(log n)** binary search using ASCII case
+   * folding, matching StarDict's default `g_ascii_strcasecmp` collation (ASCII
+   * folded, bytes ≥ 128 compared as-is). This replaces the old O(n) scan.
+   *
+   * Best-effort: exact (case-sensitive) matches are handled by `findWord`
+   * beforehand; this catches case variants. Dictionaries sorted with a
+   * different collation may not resolve every variant here.
    */
   public findWordCaseInsensitive(searchWord: string): number {
-    const lowerWord = searchWord.toLowerCase();
+    const searchBytes = this.encoder.encode(searchWord);
+    let left = 0;
+    let right = this.index.wordOffsets.length - 1;
 
-    for (let i = 0; i < this.index.wordOffsets.length; i++) {
-      const word = this.getWord(i);
-      if (word.toLowerCase() === lowerWord) {
-        return i;
+    while (left <= right) {
+      const mid = (left + right) >>> 1;
+      const wordStart = this.index.wordOffsets[mid];
+      const wordEnd =
+        mid + 1 < this.index.wordOffsets.length
+          ? this.index.wordOffsets[mid + 1]
+          : this.index.wordsBuffer.length;
+      const wordBytes = this.index.wordsBuffer.subarray(wordStart, wordEnd);
+
+      const cmp = compareByteArraysCI(wordBytes, searchBytes);
+      if (cmp === 0) {
+        return mid;
+      } else if (cmp < 0) {
+        left = mid + 1;
+      } else {
+        right = mid - 1;
       }
     }
 
     return -1;
   }
+}
+
+/** Fold ASCII A–Z to a–z; leave every other byte (incl. UTF-8 ≥ 128) untouched. */
+function foldAsciiByte(b: number): number {
+  return b >= 65 && b <= 90 ? b + 32 : b;
+}
+
+/** Byte comparison with ASCII case folding (g_ascii_strcasecmp-compatible). */
+function compareByteArraysCI(a: Uint8Array, b: Uint8Array): number {
+  const min = Math.min(a.length, b.length);
+  for (let i = 0; i < min; i++) {
+    const ca = foldAsciiByte(a[i]);
+    const cb = foldAsciiByte(b[i]);
+    if (ca !== cb) {
+      return ca < cb ? -1 : 1;
+    }
+  }
+  return a.length === b.length ? 0 : a.length < b.length ? -1 : 1;
 }

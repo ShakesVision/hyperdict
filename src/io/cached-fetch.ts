@@ -53,3 +53,17 @@ export async function clearFileCache(cacheName: string = DEFAULT_CACHE_NAME): Pr
     await caches.delete(cacheName);
   }
 }
+
+/** Delete specific URLs from the file cache (e.g. when purging one dictionary). */
+export async function deleteCachedFiles(
+  urls: string[],
+  cacheName: string = DEFAULT_CACHE_NAME
+): Promise<void> {
+  if (!hasCaches() || urls.length === 0) return;
+  try {
+    const cache = await caches.open(cacheName);
+    await Promise.all(urls.map((u) => cache.delete(u)));
+  } catch {
+    /* ignore */
+  }
+}

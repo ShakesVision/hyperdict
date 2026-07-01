@@ -43,6 +43,7 @@ new HyperDict(options?: HyperDictOptions)
 |---|---|---|---|
 | `cacheSize` | `number` | `32` | Decompressed dictzip chunks kept per dictionary (~2 MB at 32). |
 | `persist` | `boolean` | `false` | Cache `.ifo`/`.idx`/`.syn` fetches in the browser **Cache Storage** across reloads (needs https or localhost). |
+| `bloom` | `boolean` | `false` | Build a per-dictionary Bloom filter for O(1) negatives. Off by default: prefix + binary search already give O(log n) negatives, and skipping it avoids a full-corpus hashing pass at load (a real win for large dicts on low-end devices). |
 
 ### Methods
 
@@ -83,9 +84,34 @@ Loaded dictionaries with their parsed `.ifo` metadata and original config.
 
 #### `getStats(): { initialized, dictionaryCount, totalWords, memoryUsage, workerSupported }`
 
-#### `exportConfig(): DictionaryConfig[]` / `importConfig(configs): Promise<void>`
-Serialize the registered configs and restore them later (e.g. from
-localStorage). `importConfig` skips names already present.
+#### `exportConfig(origin?): DictionaryConfig[]` / `importConfig(configs, origin?): Promise<void>`
+Serialize the registered configs and restore them later. Pass `origin`
+(`'default'` | `'custom'`) to filter (e.g. persist only user-added ones).
+`importConfig` skips names already present.
+
+### Dictionary-set model (enable / disable / remove / reset)
+
+Dictionaries are **default** (registered in code) or **custom** (added at
+runtime), each **enabled** or **disabled**. This powers a safe, reversible
+management UI — nothing vanishes on a stray click.
+
+| Method | Effect |
+|---|---|
+| `setEnabled(name, enabled): Promise<void>` | Disable = unload (frees index memory) but keep the config; enable = (re)load it. Safe before `init()`. |
+| `removeDictionary(name): boolean` | Drop the dictionary. **Keeps** any cached files, so re-adding is cheap. |
+| `purgeDictionary(name): Promise<boolean>` | Hard delete: drop it **and** clear its cached files from Cache Storage. |
+| `resetToDefaults(): Promise<void>` | Remove all custom dictionaries and re-enable every default. |
+| `listDictionaries(): DictionaryInfo[]` | Every known dictionary with `{name, label, origin, enabled, loaded, metadata?, config}`. |
+| `hasConfig(name): boolean` | Whether a config is registered (loaded or not). |
+
+`registerDictionary(config, origin?)` and `addDictionary(config, origin?)` take
+an optional `origin` (default `'default'` / `'custom'` respectively).
+
+> **Persistence:** to restore a user's dictionary set across reloads, call
+> `restoreDictionaryState(engine)` (from `hyperdict/ui`) **before** `init()` — it
+> registers custom dictionaries and applies the disabled-set from localStorage so
+> `init()` loads exactly the right dictionaries (no load-then-unload). The Manage
+> panel persists changes automatically.
 
 ---
 
@@ -130,7 +156,8 @@ With `path`, HyperDict tries `<name>.dict.dz` first, then `<name>.dict`. With
 `archive` downloads and decompresses the **entire** dictionary into memory (a zip
 can't be range-read from the server). Great for small dictionaries or bundled
 offline use; for large ones prefer `path`/`files` so only needed bytes are read.
-Requires a `.zip` (fflate `unzipSync`).
+**Format:** `.zip` only (via fflate `unzipSync`; the inner `.dict.dz`/`.dict` is
+still handled correctly). `.tar`/`.tar.gz` are not supported yet.
 
 ---
 
@@ -201,9 +228,22 @@ const ui = mountHyperDictUI({
 ```
 
 The popup provides: dictionary **tabs** (missing ones dimmed), a **search box**,
-**`bword://` and relative link** lookups, a **← back** button, a **🕘 recent**
-dropdown, an **ⓘ info/attribution** panel, and a **＋ Manage** panel (add/remove
-dictionaries by archive URL or explicit file URLs, persisted to localStorage).
+**`bword://` and relative link** lookups (other schemes like `javascript:` are
+never executed), a **← back** button, a **🕘 recent** dropdown, an **ⓘ
+info/attribution** panel, and a **＋ Manage** panel — enable/disable each
+dictionary (reversible), **Delete** custom ones (permanent, clears cache),
+**Reset to defaults**, and add new ones by archive URL or explicit file URLs.
+All persisted to localStorage.
+
+### `restoreDictionaryState(engine, opts?)`
+Restore the persisted dictionary set (custom dictionaries + disabled state).
+Call **after registering defaults and before `init()`**:
+
+```javascript
+DEFAULTS.forEach((d) => engine.registerDictionary(d));
+restoreDictionaryState(engine);   // from 'hyperdict/ui'
+await engine.init();
+```
 
 ### Other UI exports
 - `ShakeebDictPopup` — the popup component (use directly for a custom mount).

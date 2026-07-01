@@ -41,6 +41,8 @@ export interface DictionaryMetadata {
   description?: string;
   date?: string;
   sametypesequence?: string;
+  /** Bits per .idx offset field: 32 (default) or 64. HyperDict supports 32. */
+  idxoffsetbits?: number;
 }
 
 /**

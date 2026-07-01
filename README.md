@@ -110,16 +110,28 @@ engine.registerDictionary({ name: 'MyDict', archive: 'https://cdn/mydict.zip' })
 
 ### Managing dictionaries at runtime
 
+Dictionaries are **default** (registered in code) or **custom** (added at
+runtime), each **enabled** or **disabled** — so the UI's toggle/remove/reset is
+safe and reversible.
+
 ```javascript
 await engine.addDictionary({
   name: 'MyDict',
   files: { ifo: '…/MyDict.ifo', idx: '…/MyDict.idx', dict: '…/MyDict.dict.dz' },
   label: 'My Dictionary', lang: 'ur', dir: 'rtl', font: 'Noto Nastaliq Urdu',
 });
-engine.removeDictionary('MyDict');
 
-const saved = engine.exportConfig();        // serializable → store anywhere
-await engine.importConfig(saved);           // restore later
+await engine.setEnabled('MyDict', false);   // hide + free memory (reversible)
+await engine.setEnabled('MyDict', true);    // reload
+engine.removeDictionary('MyDict');          // drop (keeps cached files)
+await engine.purgeDictionary('MyDict');     // hard delete + clear cached files
+await engine.resetToDefaults();             // remove custom, re-enable defaults
+engine.listDictionaries();                  // {name, origin, enabled, loaded, …}[]
+
+// Persist the user's set across reloads (with hyperdict/ui):
+//   DEFAULTS.forEach(d => engine.registerDictionary(d));
+//   restoreDictionaryState(engine);   // BEFORE init()
+//   await engine.init();
 ```
 
 ### Caching & offline

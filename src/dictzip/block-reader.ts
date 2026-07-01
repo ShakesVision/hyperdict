@@ -25,6 +25,8 @@ export class ShaekeebBlockReader implements ContentReader {
   private header: DictZipHeader;
   private cache: ShaekeebLRUCache;
   private inflate: RawInflate;
+  /** In-flight chunk fetches, so concurrent reads of one chunk share the work. */
+  private inflight: Map<number, Promise<Uint8Array>> = new Map();
 
   constructor(
     source: ByteSource,
@@ -87,14 +89,27 @@ export class ShaekeebBlockReader implements ContentReader {
     if (cached) {
       return cached;
     }
+    // Coalesce concurrent reads of the same chunk into one fetch + inflate.
+    const pending = this.inflight.get(chunkIndex);
+    if (pending) {
+      return pending;
+    }
 
     const start = this.header.cumOffsets[chunkIndex];
     const end = start + this.header.chunkCompLengths[chunkIndex];
-    const compressed = await this.source.read(start, end);
-    const decompressed = this.inflate(compressed);
+    const promise = this.source
+      .read(start, end)
+      .then((compressed) => {
+        const decompressed = this.inflate(compressed);
+        this.cache.set(chunkIndex, decompressed);
+        return decompressed;
+      })
+      .finally(() => {
+        this.inflight.delete(chunkIndex);
+      });
 
-    this.cache.set(chunkIndex, decompressed);
-    return decompressed;
+    this.inflight.set(chunkIndex, promise);
+    return promise;
   }
 
   /** Warm the cache for chunks following `currentChunk` (sequential reading aid). */

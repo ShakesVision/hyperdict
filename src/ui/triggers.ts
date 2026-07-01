@@ -35,8 +35,11 @@ type CaretCapableDocument = Document & {
   ) => { offsetNode: Node; offset: number } | null;
 };
 
-/** Matches a "word" run including Unicode letters, marks and digits (Urdu-safe). */
-const WORD_RE = /[\p{L}\p{M}\p{N}]/u;
+/**
+ * Matches a "word" run: Unicode letters, marks and digits, plus ZWNJ/ZWJ
+ * (U+200C/U+200D) which join letters within Urdu/Persian words.
+ */
+const WORD_RE = /[\p{L}\p{M}\p{N}‌‍]/u;
 
 /** Expand a string around `pos` to the surrounding word using Unicode classes. */
 function wordAround(text: string, pos: number): string {

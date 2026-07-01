@@ -1,26 +1,37 @@
 /**
- * ManageDictionariesPanel - add/remove dictionaries at runtime
+ * ManageDictionariesPanel - enable/disable, add, delete, and reset dictionaries
  * Authored by Shakeeb Ahmad
  *
- * A small black-&-white overlay letting a (possibly non-technical) end-user add
- * a dictionary by pasting the three required file URLs (.ifo, .idx, .dict.dz)
- * plus an optional .syn, and choosing a name, language and text direction; and
- * remove existing ones. It calls back into whatever wired it (typically the
- * engine's addDictionary/removeDictionary), then fires onChange so the popup can
- * refresh its tabs. Where the resulting config is persisted is the embedder's
- * choice (mountHyperDictUI defaults to localStorage).
+ * A black-&-white overlay giving end-users safe control over the dictionary set:
+ *   - a toggle per dictionary (disable = hide + free memory, fully reversible)
+ *   - "Delete" for user-added (custom) dictionaries (permanent; also clears
+ *     their cached files) — with a confirm, so nothing vanishes on a stray click
+ *   - "Reset to defaults" to recover the original set
+ *   - an add form (archive .zip URL, or explicit .ifo/.idx/.dict URLs)
+ *
+ * It calls back into whatever wired it (typically the engine); persistence of
+ * the resulting state is the embedder's job (mountHyperDictUI uses localStorage).
  */
 
 import type { DictionaryConfig } from '../core/types';
 
+export interface ManageRow {
+  name: string;
+  label: string;
+  origin: 'default' | 'custom';
+  enabled: boolean;
+}
+
 export interface ManageOptions {
-  /** Current dictionaries (name + display label). */
-  list: () => Array<{ name: string; label: string }>;
+  list: () => ManageRow[];
+  setEnabled: (name: string, enabled: boolean) => void | Promise<void>;
+  /** Permanently remove a (custom) dictionary and its cached files. */
+  remove: (name: string) => void | Promise<void>;
+  /** Reset to the default dictionary set. */
+  reset: () => void | Promise<void>;
   /** Add (register + load) a dictionary. Should reject on failure. */
   add: (config: DictionaryConfig) => Promise<void>;
-  /** Remove a dictionary by name. */
-  remove: (name: string) => void | Promise<void>;
-  /** Called after any successful add/remove. */
+  /** Called after any successful change. */
   onChange?: () => void;
 }
 
@@ -31,15 +42,27 @@ const CSS = `
 .${PREFIX}-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483647;display:none;
   align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 .${PREFIX}-overlay.open{display:flex}
-.${PREFIX}-card{background:#fff;color:#000;border:2px solid #000;border-radius:8px;width:520px;
+.${PREFIX}-card{background:#fff;color:#000;border:2px solid #000;border-radius:8px;width:540px;
   max-width:calc(100vw - 24px);max-height:88vh;overflow:auto;padding:18px}
-.${PREFIX}-card h3{margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
+.${PREFIX}-card h3{margin:0 0 12px;display:flex;justify-content:space-between;align-items:center;font-size:1.1em}
 .${PREFIX}-x{border:1px solid #000;background:#fff;border-radius:4px;width:28px;height:28px;cursor:pointer}
 .${PREFIX}-x:hover{background:#000;color:#fff}
-.${PREFIX}-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #eee}
-.${PREFIX}-del{border:1px solid #000;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer}
+.${PREFIX}-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eee}
+.${PREFIX}-row .name{flex:1}
+.${PREFIX}-badge{font-size:10px;text-transform:uppercase;letter-spacing:.04em;border:1px solid #999;
+  color:#666;border-radius:3px;padding:1px 5px}
+.${PREFIX}-del{border:1px solid #000;background:#fff;border-radius:4px;padding:3px 9px;cursor:pointer;font-size:12px}
 .${PREFIX}-del:hover{background:#000;color:#fff}
+.${PREFIX}-toggle{position:relative;width:38px;height:20px;flex:none;cursor:pointer}
+.${PREFIX}-toggle input{opacity:0;width:0;height:0;position:absolute}
+.${PREFIX}-track{position:absolute;inset:0;background:#ccc;border-radius:20px;transition:.2s}
+.${PREFIX}-track:before{content:'';position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;
+  border-radius:50%;transition:.2s}
+.${PREFIX}-toggle input:checked + .${PREFIX}-track{background:#000}
+.${PREFIX}-toggle input:checked + .${PREFIX}-track:before{transform:translateX(18px)}
+.${PREFIX}-toggle input:disabled + .${PREFIX}-track{opacity:.5}
 .${PREFIX}-form{margin-top:14px;display:grid;gap:8px}
+.${PREFIX}-form h4{margin:6px 0 0;font-size:.95em}
 .${PREFIX}-form label{font-size:12px;font-weight:600;color:#333}
 .${PREFIX}-form input,.${PREFIX}-form select{width:100%;padding:8px;border:1px solid #000;border-radius:4px;font-size:14px}
 .${PREFIX}-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -48,6 +71,9 @@ const CSS = `
 .${PREFIX}-add:hover{background:#fff;color:#000}
 .${PREFIX}-add:disabled{opacity:.5;cursor:default}
 .${PREFIX}-err{color:#b00;font-size:13px;min-height:16px}
+.${PREFIX}-foot{display:flex;justify-content:flex-end;margin-top:14px}
+.${PREFIX}-reset{border:1px solid #000;background:#fff;border-radius:5px;padding:8px 12px;cursor:pointer;font-size:13px}
+.${PREFIX}-reset:hover{background:#000;color:#fff}
 `;
 
 function injectStyleOnce(): void {
@@ -101,7 +127,9 @@ export class ManageDictionariesPanel {
     card.innerHTML = `
       <h3>Manage dictionaries <button type="button" class="${PREFIX}-x" aria-label="Close">✕</button></h3>
       <div class="${PREFIX}-list"></div>
+      <div class="${PREFIX}-foot"><button type="button" class="${PREFIX}-reset">Reset to defaults</button></div>
       <div class="${PREFIX}-form">
+        <h4>Add a dictionary</h4>
         <div class="${PREFIX}-two">
           <div><label>Name (unique id)</label><input data-f="name" placeholder="MyDict" /></div>
           <div><label>Label (shown on tab)</label><input data-f="label" placeholder="My Dictionary" /></div>
@@ -146,32 +174,80 @@ export class ManageDictionariesPanel {
     });
     this.addBtn = card.querySelector(`.${PREFIX}-add`) as HTMLButtonElement;
     this.addBtn.addEventListener('click', () => void this.submit());
+    (card.querySelector(`.${PREFIX}-reset`) as HTMLButtonElement).addEventListener('click', () =>
+      void this.doReset()
+    );
   }
 
   private renderList(): void {
-    const dicts = this.opts.list();
+    const rows = this.opts.list();
     this.listEl.innerHTML = '';
-    if (dicts.length === 0) {
+    if (rows.length === 0) {
       this.listEl.innerHTML = `<div style="color:#777;padding:6px 0">No dictionaries yet — add one below.</div>`;
       return;
     }
-    for (const d of dicts) {
-      const row = document.createElement('div');
-      row.className = `${PREFIX}-row`;
-      const label = document.createElement('span');
-      label.textContent = d.label || d.name;
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = `${PREFIX}-del`;
-      del.textContent = 'Remove';
-      del.addEventListener('click', async () => {
-        await this.opts.remove(d.name);
-        this.renderList();
-        this.opts.onChange?.();
+    for (const row of rows) {
+      const el = document.createElement('div');
+      el.className = `${PREFIX}-row`;
+
+      // Enable/disable toggle
+      const toggle = document.createElement('label');
+      toggle.className = `${PREFIX}-toggle`;
+      toggle.title = row.enabled ? 'Enabled (click to disable)' : 'Disabled (click to enable)';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = row.enabled;
+      const track = document.createElement('span');
+      track.className = `${PREFIX}-track`;
+      toggle.append(cb, track);
+      cb.addEventListener('change', async () => {
+        cb.disabled = true;
+        try {
+          await this.opts.setEnabled(row.name, cb.checked);
+          this.opts.onChange?.();
+        } finally {
+          this.renderList();
+        }
       });
-      row.append(label, del);
-      this.listEl.appendChild(row);
+
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = row.label || row.name;
+
+      const badge = document.createElement('span');
+      badge.className = `${PREFIX}-badge`;
+      badge.textContent = row.origin;
+
+      el.append(toggle, name, badge);
+
+      if (row.origin === 'custom') {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = `${PREFIX}-del`;
+        del.textContent = 'Delete';
+        del.title = 'Remove permanently and clear its cached files';
+        del.addEventListener('click', async () => {
+          if (!confirm(`Delete "${row.label || row.name}" permanently? This clears its cached files.`)) {
+            return;
+          }
+          await this.opts.remove(row.name);
+          this.opts.onChange?.();
+          this.renderList();
+        });
+        el.appendChild(del);
+      }
+
+      this.listEl.appendChild(el);
     }
+  }
+
+  private async doReset(): Promise<void> {
+    if (!confirm('Reset to the default dictionaries? Custom dictionaries you added will be removed.')) {
+      return;
+    }
+    await this.opts.reset();
+    this.opts.onChange?.();
+    this.renderList();
   }
 
   private val(name: string): string {
@@ -212,7 +288,6 @@ export class ManageDictionariesPanel {
     this.addBtn.textContent = 'Loading…';
     try {
       await this.opts.add(config);
-      // Reset the URL/name fields on success.
       ['name', 'label', 'archive', 'ifo', 'idx', 'dict', 'syn', 'font', 'fontUrl'].forEach((f) => {
         if (this.fields[f]) (this.fields[f] as HTMLInputElement).value = '';
       });

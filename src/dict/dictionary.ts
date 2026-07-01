@@ -43,6 +43,8 @@ export interface DictionaryDeps {
   persist?: boolean;
   /** Max cached resolved definitions per dictionary. Default 300. */
   defCacheSize?: number;
+  /** Build a Bloom filter (extra load cost for O(1) negatives). Default false. */
+  useBloom?: boolean;
 }
 
 /**
@@ -75,7 +77,7 @@ export class Dictionary {
   private readonly reader: TypedIndexReader;
   private readonly search: ShaekeebBinarySearch;
   private readonly prefixIndex: ShaekeebPrefixIndex;
-  private readonly bloom: ShaekeebBloomFilter;
+  private readonly bloom: ShaekeebBloomFilter | null;
   private readonly synonyms: Map<string, number> | null;
   private readonly contentReader: ContentReader | null;
   /** Single content type from `sametypesequence` ('' if not declared). */
@@ -92,6 +94,7 @@ export class Dictionary {
     synonyms: Map<string, number> | null;
     contentReader: ContentReader | null;
     defCacheMax: number;
+    useBloom: boolean;
   }) {
     this.config = args.config;
     this.name = args.config.name;
@@ -105,9 +108,17 @@ export class Dictionary {
     this.reader = new TypedIndexReader(args.index);
     this.search = new ShaekeebBinarySearch(args.index);
     this.prefixIndex = new ShaekeebPrefixIndex(args.index);
-    this.bloom = new ShaekeebBloomFilter(Math.max(1, args.index.wordOffsets.length));
-    for (let i = 0; i < args.index.wordOffsets.length; i++) {
-      this.bloom.addBytes(this.reader.getWordBytes(i));
+
+    // The Bloom filter is optional: prefix + binary search already give
+    // O(log n) negatives, and building the filter is a full-corpus hashing pass
+    // we'd rather skip on large dictionaries / low-end devices.
+    if (args.useBloom) {
+      this.bloom = new ShaekeebBloomFilter(Math.max(1, args.index.wordOffsets.length));
+      for (let i = 0; i < args.index.wordOffsets.length; i++) {
+        this.bloom.addBytes(this.reader.getWordBytes(i));
+      }
+    } else {
+      this.bloom = null;
     }
   }
 
@@ -136,6 +147,7 @@ export class Dictionary {
     if (!ifoParser.validate(metadata)) {
       throw new Error(`Invalid .ifo metadata for "${config.name}"`);
     }
+    Dictionary.assertSupported(config.name, metadata);
 
     const index = idxParser.parseIdx(await fetchBuffer(files.idx, { persist }));
 
@@ -150,7 +162,28 @@ export class Dictionary {
       : [files.dict, files.dict.replace(/\.dz$/i, '')];
     const contentReader = await Dictionary.buildHttpContentReader(candidates, config.name, deps);
 
-    return new Dictionary({ config, metadata, index, synonyms, contentReader, defCacheMax });
+    return new Dictionary({
+      config,
+      metadata,
+      index,
+      synonyms,
+      contentReader,
+      defCacheMax,
+      useBloom: deps.useBloom ?? false,
+    });
+  }
+
+  /**
+   * Reject dictionaries HyperDict can't parse correctly. 64-bit idx offsets use
+   * 8-byte fields; our parser and Uint32 offset arrays assume 32-bit, so a
+   * 64-bit dictionary would parse into garbage — fail loudly instead.
+   */
+  private static assertSupported(name: string, metadata: DictionaryMetadata): void {
+    if (metadata.idxoffsetbits && metadata.idxoffsetbits !== 32) {
+      throw new Error(
+        `Dictionary "${name}" uses idxoffsetbits=${metadata.idxoffsetbits}; only 32-bit offsets are supported.`
+      );
+    }
   }
 
   /** Load everything from a single in-memory .zip archive. */
@@ -187,6 +220,7 @@ export class Dictionary {
     if (!ifoParser.validate(metadata)) {
       throw new Error(`Invalid .ifo metadata in archive for "${config.name}"`);
     }
+    Dictionary.assertSupported(config.name, metadata);
     const index = idxParser.parseIdx(idxBytes);
 
     const synBytes = pick('.syn');
@@ -214,7 +248,15 @@ export class Dictionary {
       );
     }
 
-    return new Dictionary({ config, metadata, index, synonyms, contentReader, defCacheMax });
+    return new Dictionary({
+      config,
+      metadata,
+      index,
+      synonyms,
+      contentReader,
+      defCacheMax,
+      useBloom: deps.useBloom ?? false,
+    });
   }
 
   /**
@@ -338,9 +380,9 @@ export class Dictionary {
 
   // --- lookups -------------------------------------------------------------
 
-  /** Exact headword lookup (bloom → prefix range → bounded binary search). */
+  /** Exact headword lookup (optional bloom → prefix range → bounded binary search). */
   public findIndex(word: string): number {
-    if (!this.bloom.mightContain(word)) {
+    if (this.bloom && !this.bloom.mightContain(word)) {
       return -1;
     }
     const range = this.prefixIndex.getSearchRange(word);
@@ -361,7 +403,9 @@ export class Dictionary {
       return direct;
     }
 
-    // Case-insensitive fallback (StarDict often sorts ASCII case-insensitively).
+    // Case-insensitive fallback for ASCII queries. StarDict's default collation
+    // (g_ascii_strcasecmp) sorts ASCII case-insensitively, so this is an
+    // O(log n) binary search — not the old O(n) full scan.
     if (/[A-Za-z]/.test(word)) {
       const ci = this.search.findWordCaseInsensitive(word);
       if (ci !== -1) {
@@ -477,7 +521,7 @@ export class Dictionary {
       this.index.wordOffsets.byteLength +
       this.index.offsetArray.byteLength +
       this.index.lengthArray.byteLength;
-    mem += this.bloom.getMemoryUsage();
+    if (this.bloom) mem += this.bloom.getMemoryUsage();
     mem += this.prefixIndex.getMemoryUsage();
     return mem;
   }

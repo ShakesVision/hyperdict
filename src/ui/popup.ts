@@ -147,6 +147,11 @@ export class ShakeebDictPopup {
   private word = '';
   private backStack: string[] = [];
   private requestSeq = 0;
+  private static readonly MAX_BACK = 100;
+  /** Stored so destroy() can remove it — otherwise it leaks the popup. */
+  private readonly onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && this.isOpen()) this.close();
+  };
 
   constructor(options: PopupOptions) {
     this.opts = options;
@@ -254,9 +259,7 @@ export class ShakeebDictPopup {
     this.root.append(head, toolbar, searchWrap, this.body);
     document.body.append(this.overlay, this.root);
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isOpen()) this.close();
-    });
+    document.addEventListener('keydown', this.onKeyDown);
   }
 
   private iconButton(
@@ -319,6 +322,9 @@ export class ShakeebDictPopup {
     if (!w) return;
     if (!opts.fromBack && this.word && this.word !== w) {
       this.backStack.push(this.word);
+      if (this.backStack.length > ShakeebDictPopup.MAX_BACK) {
+        this.backStack.shift(); // bound memory over long sessions
+      }
     }
     if (opts.resetBack) this.backStack = [];
     this.word = w;
@@ -351,6 +357,7 @@ export class ShakeebDictPopup {
   }
 
   public destroy(): void {
+    document.removeEventListener('keydown', this.onKeyDown);
     this.overlay.remove();
     this.root.remove();
   }
@@ -358,16 +365,18 @@ export class ShakeebDictPopup {
   private onBodyClick(e: MouseEvent): void {
     const anchor = (e.target as Element | null)?.closest('a');
     if (!anchor) return;
+    // We fully own link handling inside definitions: never let the browser's
+    // default action run, so `javascript:`/`data:` hrefs from dictionary content
+    // can't execute. Cross-references become lookups; http(s) opens in a new tab.
     const href = anchor.getAttribute('href') ?? '';
+    e.preventDefault();
     const word = resolveLinkWord(href);
     if (word) {
-      e.preventDefault();
       this.showWord(word);
     } else if (/^https?:/i.test(href)) {
-      // External link — open safely in a new tab.
-      e.preventDefault();
       window.open(href, '_blank', 'noopener');
     }
+    // Any other scheme (javascript:, data:, …) is intentionally ignored.
   }
 
   private async loadActive(): Promise<void> {
@@ -478,7 +487,11 @@ export class ShakeebDictPopup {
     const a = this.opts.attribution;
     if (a === false) return '';
     if (a && typeof a === 'object') {
-      const link = a.url ? ` — <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.url)}</a>` : '';
+      // Only render a link for http(s) URLs (no javascript:/data: schemes).
+      const safeUrl = a.url && /^https?:/i.test(a.url) ? a.url : '';
+      const link = safeUrl
+        ? ` — <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener">${escapeHtml(safeUrl)}</a>`
+        : '';
       return `<div class="${PREFIX}-credit">${escapeHtml(a.text)}${link}</div>`;
     }
     return `<div class="${PREFIX}-credit">Powered by <b>HyperDict</b> · Shakeeb Ahmad · <a href="https://shakeeb.in" target="_blank" rel="noopener">shakeeb.in</a></div>`;
