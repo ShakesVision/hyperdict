@@ -44,11 +44,46 @@ export interface DictionaryMetadata {
 }
 
 /**
- * Dictionary configuration for registration
+ * Explicit URLs for a dictionary's StarDict files.
+ * `.ifo`, `.idx`, `.dict` (the .dict.dz) are required; `.syn` is optional.
+ */
+export interface DictionaryFiles {
+  ifo: string;
+  idx: string;
+  dict: string;
+  syn?: string;
+}
+
+/**
+ * Dictionary configuration for registration.
+ *
+ * Provide EITHER explicit `files` (most robust — the Manage UI uses this) OR a
+ * `path` folder plus optional `basename` (convenience: files are assumed to be
+ * `<path><basename>.ext`, with basename defaulting to `name`).
+ *
+ * The remaining fields are UI hints consumed by the popup layer; the core
+ * engine ignores them.
  */
 export interface DictionaryConfig {
   name: string;
-  path: string;
+  /** Base folder URL (files named `<basename>.ext`). */
+  path?: string;
+  /** Basename of the files under `path`. Defaults to `name`. */
+  basename?: string;
+  /** Explicit file URLs. Takes precedence over `path`/`basename`. */
+  files?: DictionaryFiles;
+
+  // --- UI hints (optional) ---
+  /** Human-readable tab label. Defaults to `name`. */
+  label?: string;
+  /** BCP-47-ish language tag, e.g. 'ur', 'en'. */
+  lang?: string;
+  /** Text direction for words/definitions. Auto-detected if omitted. */
+  dir?: 'rtl' | 'ltr';
+  /** CSS font-family to apply to definitions (e.g. 'Noto Nastaliq Urdu'). */
+  font?: string;
+  /** Stylesheet URL to inject for `font` (e.g. a Google Fonts link). */
+  fontUrl?: string;
 }
 
 /**

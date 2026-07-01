@@ -11,7 +11,7 @@ export { HyperDict } from './core/engine';
 export type { HyperDictOptions } from './core/engine';
 
 // Single-dictionary unit (advanced / custom usage)
-export { Dictionary } from './dict/dictionary';
+export { Dictionary, resolveFiles } from './dict/dictionary';
 export type { DictionaryDeps } from './dict/dictionary';
 
 // Types
@@ -20,10 +20,15 @@ export type {
   DictionaryEntry,
   DictionaryMetadata,
   DictionaryConfig,
+  DictionaryFiles,
   LookupResult,
   DefinitionResult,
   DictZipHeader,
 } from './core/types';
+
+// Persistence / caching
+export { fetchBuffer, fetchText, clearFileCache, DEFAULT_CACHE_NAME } from './io/cached-fetch';
+export type { FetchOptions } from './io/cached-fetch';
 
 // Algorithms (reusable building blocks)
 export { ShaekeebBinarySearch } from './algorithms/binary-search';

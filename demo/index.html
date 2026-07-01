@@ -79,39 +79,38 @@
     <script src="./hyperdict.min.js"></script>
     <script src="./hyperdict-ui.min.js"></script>
     <script>
+      const REPO =
+        'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/';
+      // Urdu dictionaries: RTL + a Nastaliq webfont (auto-injected from the fontUrl).
+      const NASTALIQ = 'https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap';
       const DICTS = [
-        {
-          name: 'UrduLughat',
-          label: 'Urdu Lughat',
-          path: 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/UrduLughatOffline/',
-        },
-        {
-          name: 'UDB_Lughat_Kabeer',
-          label: 'UDB Lughat Kabeer',
-          path: 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/UDBLite/',
-        },
-        {
-          name: 'thesaurus',
-          label: 'Thesaurus',
-          path: 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/Thesaurus/',
-        },
+        { name: 'UrduLughat', label: 'Urdu Lughat', path: REPO + 'UrduLughatOffline/',
+          lang: 'ur', dir: 'rtl', font: 'Noto Nastaliq Urdu', fontUrl: NASTALIQ },
+        { name: 'UDB_Lughat_Kabeer', label: 'UDB Lughat Kabeer', path: REPO + 'UDBLite/',
+          lang: 'ur', dir: 'rtl', font: 'Noto Nastaliq Urdu', fontUrl: NASTALIQ },
+        { name: 'thesaurus', label: 'Thesaurus', path: REPO + 'Thesaurus/',
+          lang: 'ur', dir: 'rtl', font: 'Noto Nastaliq Urdu', fontUrl: NASTALIQ },
       ];
 
       const $ = (id) => document.getElementById(id);
 
       (async function init() {
         try {
-          const engine = new HyperDict.HyperDict();
-          for (const d of DICTS) engine.registerDictionary({ name: d.name, path: d.path });
+          // persist:true caches .ifo/.idx in Cache Storage across reloads.
+          const engine = new HyperDict.HyperDict({ persist: true });
+          for (const d of DICTS) engine.registerDictionary(d);
 
           $('status').textContent = 'Loading indices…';
           await engine.init();
 
-          const stats = engine.getStats();
-          $('dictCount').textContent = stats.dictionaryCount;
-          $('wordCount').textContent = stats.totalWords.toLocaleString();
-          $('memUse').textContent = (stats.memoryUsage / 1048576).toFixed(1) + ' MB';
-          $('status').textContent = '✓ Ready — select a word';
+          const refreshStats = () => {
+            const s = engine.getStats();
+            $('dictCount').textContent = s.dictionaryCount;
+            $('wordCount').textContent = s.totalWords.toLocaleString();
+            $('memUse').textContent = (s.memoryUsage / 1048576).toFixed(1) + ' MB';
+          };
+          refreshStats();
+          $('status').textContent = '✓ Ready — select a word, or use ＋ to add your own';
 
           // Time lookups for the stats panel by wrapping getDefinition.
           const origGetDef = engine.getDefinition.bind(engine);
@@ -122,14 +121,15 @@
             return r;
           };
 
-          // Mount the reusable popup + triggers. One call.
+          // Mount the reusable popup + triggers. Tabs (label/dir/font) are derived
+          // from each dictionary's config, so no tab list is needed here.
           HyperDictUI.mountHyperDictUI({
             engine,
-            dictionaries: DICTS.map((d) => ({ name: d.name, label: d.label })),
             placeholder: 'تلاش کریں',
             dir: 'rtl',
             selection: true,
             longPress: true,
+            manage: true, // ＋ button: add/remove dictionaries (persisted to localStorage)
           });
         } catch (err) {
           console.error(err);

@@ -67,6 +67,47 @@ mountHyperDictUI({
 Plain `<script>` (Blogger/static sites): load `dist/hyperdict.min.js` (global
 `HyperDict`) and `dist/hyperdict-ui.min.js` (global `HyperDictUI`). See `demo/`.
 
+The popup includes, out of the box: **per-dictionary direction & font** (Urdu →
+RTL + Nastaliq), **`bword://` cross-reference links** (click a linked word to
+look it up), **recent-search history** with a back button, an **ⓘ info panel**
+(dictionary metadata + attribution), and a **＋ Manage panel** so end-users can
+add/remove dictionaries by pasting the `.ifo`/`.idx`/`.dict.dz`(+optional
+`.syn`) URLs. Useful options:
+
+```javascript
+mountHyperDictUI({
+  engine,
+  dir: 'rtl',
+  manage: true,                 // ＋ add/remove dictionaries (persisted to localStorage)
+  historyLimit: 50,             // recent-search cap
+  attribution: true,            // ⓘ shows "Powered by HyperDict · Shakeeb Ahmad"
+  // Per-dictionary rendering override (e.g. clean up a messy plain-text dict):
+  transform: (result, dictName) =>
+    dictName === 'UDB' ? result.definition.replaceAll('======', ' · ') : result.definition,
+});
+```
+
+### Managing dictionaries in code
+
+```javascript
+await engine.addDictionary({
+  name: 'MyDict',
+  files: { ifo: '…/MyDict.ifo', idx: '…/MyDict.idx', dict: '…/MyDict.dict.dz' },
+  label: 'My Dictionary', lang: 'ur', dir: 'rtl', font: 'Noto Nastaliq Urdu',
+});
+engine.removeDictionary('MyDict');
+
+const saved = engine.exportConfig();        // serializable → store anywhere
+await engine.importConfig(saved);           // restore later
+```
+
+### Caching & offline
+
+- **In-session:** decompressed dictzip chunks (LRU) + resolved definitions are cached per dictionary — repeat lookups are network-free.
+- **Across reloads:** pass `new HyperDict({ persist: true })` to cache the `.ifo`/`.idx`/`.syn` files in the browser **Cache Storage**, so revisiting a dictionary skips the download. (Requires https or localhost.)
+
+> **Note:** `.dict.dz` hosting must support **HTTP Range + CORS** (GitHub raw and jsDelivr do). There is no server "meaning" endpoint — HyperDict computes definitions in the browser; jsDelivr/GitHub just host the static files.
+
 ## 🏗️ Architecture
 
 ```

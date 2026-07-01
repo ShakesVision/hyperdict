@@ -23,6 +23,8 @@ import type {
 export interface HyperDictOptions {
   /** Decompressed-chunk LRU size per dictionary. Default 32 (~2 MB). */
   cacheSize?: number;
+  /** Cache whole-file fetches (.ifo/.idx/.syn) in Cache Storage across reloads. */
+  persist?: boolean;
 }
 
 export class HyperDict {
@@ -46,6 +48,48 @@ export class HyperDict {
   }
 
   /**
+   * Register AND load a dictionary at runtime (after init()). Resolves once the
+   * dictionary is queryable. Throws if the name is taken or loading fails.
+   */
+  public async addDictionary(config: DictionaryConfig): Promise<void> {
+    if (this.configs.has(config.name)) {
+      throw new Error(`Dictionary '${config.name}' already exists`);
+    }
+    const dict = await Dictionary.load(config, {
+      inflate: rawInflate,
+      cacheSize: this.options.cacheSize,
+      persist: this.options.persist,
+    });
+    this.configs.set(config.name, config);
+    this.dictionaries.set(config.name, dict);
+  }
+
+  /** Remove a dictionary (its index/caches become eligible for GC). */
+  public removeDictionary(name: string): boolean {
+    const had = this.dictionaries.delete(name);
+    this.configs.delete(name);
+    return had;
+  }
+
+  /**
+   * Serializable list of registered dictionary configs — hand to importConfig()
+   * (or persist yourself) to restore the exact dictionary set later.
+   */
+  public exportConfig(): DictionaryConfig[] {
+    return Array.from(this.configs.values()).map((c) => ({ ...c }));
+  }
+
+  /**
+   * Load a set of dictionary configs (e.g. from exportConfig()/localStorage),
+   * skipping any whose name is already present. Failures are per-dictionary.
+   */
+  public async importConfig(configs: DictionaryConfig[]): Promise<void> {
+    await Promise.allSettled(
+      configs.filter((c) => !this.configs.has(c.name)).map((c) => this.addDictionary(c))
+    );
+  }
+
+  /**
    * Load all registered dictionaries in parallel. Individual failures are
    * collected and surfaced, but successfully-loaded dictionaries remain usable.
    */
@@ -59,6 +103,7 @@ export class HyperDict {
         const dict = await Dictionary.load(config, {
           inflate: rawInflate,
           cacheSize: this.options.cacheSize,
+          persist: this.options.persist,
         });
         this.dictionaries.set(config.name, dict);
       })
@@ -118,11 +163,21 @@ export class HyperDict {
       .map((s) => s.value);
   }
 
-  public getDictionaries(): Array<{ name: string; metadata: DictionaryMetadata }> {
+  public getDictionaries(): Array<{
+    name: string;
+    metadata: DictionaryMetadata;
+    config: DictionaryConfig;
+  }> {
     return Array.from(this.dictionaries.values()).map((dict) => ({
       name: dict.name,
       metadata: dict.metadata,
+      config: dict.config,
     }));
+  }
+
+  /** Whether a dictionary with this name is currently loaded. */
+  public hasDictionary(name: string): boolean {
+    return this.dictionaries.has(name);
   }
 
   public getStats(): {

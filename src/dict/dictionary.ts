@@ -20,9 +20,11 @@ import { ShaekeebBloomFilter } from '../algorithms/bloom-filter';
 import { ShaekeebDictZipHeaderParser } from '../dictzip/header-parser';
 import { ShaekeebBlockReader, type RawInflate } from '../dictzip/block-reader';
 import { ShaekeebRangeFetcher } from '../io/range-fetch';
+import { fetchBuffer } from '../io/cached-fetch';
 
 import type {
   DictionaryConfig,
+  DictionaryFiles,
   DictionaryMetadata,
   ShaekeebTypedIndex,
   DefinitionResult,
@@ -34,6 +36,31 @@ export interface DictionaryDeps {
   inflate: RawInflate;
   /** Decompressed-chunk LRU size. Default 32 (~2 MB). */
   cacheSize?: number;
+  /** Cache whole-file fetches (.ifo/.idx/.syn) in Cache Storage across reloads. */
+  persist?: boolean;
+  /** Max cached resolved definitions per dictionary. Default 300. */
+  defCacheSize?: number;
+}
+
+/**
+ * Resolve a config to concrete file URLs. Explicit `files` win; otherwise the
+ * files are assumed to live at `<path><basename>.ext` (basename defaults to name).
+ */
+export function resolveFiles(config: DictionaryConfig): DictionaryFiles {
+  if (config.files) {
+    return config.files;
+  }
+  if (!config.path) {
+    throw new Error(`Dictionary "${config.name}" needs either files{} or a path`);
+  }
+  const base = config.path.endsWith('/') ? config.path : `${config.path}/`;
+  const bn = config.basename ?? config.name;
+  return {
+    ifo: `${base}${bn}.ifo`,
+    idx: `${base}${bn}.idx`,
+    dict: `${base}${bn}.dict.dz`,
+    syn: `${base}${bn}.syn`,
+  };
 }
 
 export class Dictionary {
@@ -51,6 +78,9 @@ export class Dictionary {
   /** Single content type from `sametypesequence` ('' if not declared). */
   private readonly contentType: string;
   private readonly decoder = new TextDecoder('utf-8');
+  /** Resolved-definition cache (headword -> result), bounded LRU. */
+  private readonly defCache = new Map<string, DefinitionResult>();
+  private readonly defCacheMax: number;
 
   private constructor(args: {
     config: DictionaryConfig;
@@ -58,6 +88,7 @@ export class Dictionary {
     index: ShaekeebTypedIndex;
     synonyms: Map<string, number> | null;
     blockReader: ShaekeebBlockReader | null;
+    defCacheMax: number;
   }) {
     this.config = args.config;
     this.name = args.config.name;
@@ -65,6 +96,7 @@ export class Dictionary {
     this.index = args.index;
     this.synonyms = args.synonyms;
     this.blockReader = args.blockReader;
+    this.defCacheMax = args.defCacheMax;
     this.contentType = args.metadata.sametypesequence ?? '';
 
     this.reader = new TypedIndexReader(args.index);
@@ -82,31 +114,41 @@ export class Dictionary {
    * (a dictionary without a readable .dict.dz can still answer "exists?").
    */
   public static async load(config: DictionaryConfig, deps: DictionaryDeps): Promise<Dictionary> {
-    const base = config.path.endsWith('/') ? config.path : `${config.path}/`;
-    const url = (ext: string): string => `${base}${config.name}.${ext}`;
+    const files = resolveFiles(config);
+    const persist = deps.persist;
 
     const ifoParser = new ShaekeebIfoParser();
     const idxParser = new ShaekeebIdxParser();
 
-    const metadata = await ifoParser.parseIfoFromUrl(url('ifo'));
+    const metadata = ifoParser.parseIfo(await fetchBuffer(files.ifo, { persist }));
     if (!ifoParser.validate(metadata)) {
       throw new Error(`Invalid .ifo metadata for "${config.name}"`);
     }
 
-    const index = await idxParser.parseIdxFromUrl(url('idx'));
+    const index = idxParser.parseIdx(await fetchBuffer(files.idx, { persist }));
 
-    const synonyms = await Dictionary.tryLoadSynonyms(url('syn'));
+    // Only attempt .syn when explicitly provided, or when using the path form
+    // (where the URL is a best-effort guess that may legitimately 404).
+    const synUrl = config.files ? config.files.syn : files.syn;
+    const synonyms = synUrl ? await Dictionary.tryLoadSynonyms(synUrl, persist) : null;
 
     let blockReader: ShaekeebBlockReader | null = null;
     try {
-      const header = await Dictionary.loadDictZipHeader(url('dict.dz'));
-      blockReader = new ShaekeebBlockReader(url('dict.dz'), header, deps.inflate, deps.cacheSize);
+      const header = await Dictionary.loadDictZipHeader(files.dict);
+      blockReader = new ShaekeebBlockReader(files.dict, header, deps.inflate, deps.cacheSize);
     } catch (err) {
       // Lookups (existence) still work; getDefinition will report the failure.
       console.warn(`[hyperdict] Could not set up .dict.dz for "${config.name}":`, err);
     }
 
-    return new Dictionary({ config, metadata, index, synonyms, blockReader });
+    return new Dictionary({
+      config,
+      metadata,
+      index,
+      synonyms,
+      blockReader,
+      defCacheMax: deps.defCacheSize ?? 300,
+    });
   }
 
   /**
@@ -142,14 +184,13 @@ export class Dictionary {
    * Parse a StarDict .syn file: repeated [word\0][u32 BE index-into-idx].
    * Returns null if absent. Maps each synonym to the .idx entry it points at.
    */
-  private static async tryLoadSynonyms(synUrl: string): Promise<Map<string, number> | null> {
+  private static async tryLoadSynonyms(
+    synUrl: string,
+    persist?: boolean
+  ): Promise<Map<string, number> | null> {
     let buffer: ArrayBuffer;
     try {
-      const res = await fetch(synUrl);
-      if (!res.ok) {
-        return null;
-      }
-      buffer = await res.arrayBuffer();
+      buffer = await fetchBuffer(synUrl, { persist });
     } catch {
       return null;
     }
@@ -240,6 +281,16 @@ export class Dictionary {
       return null;
     }
 
+    const headword = this.search.getWord(idx);
+
+    // Serve from the resolved-definition cache when possible (network-free).
+    const cached = this.defCache.get(headword);
+    if (cached) {
+      this.defCache.delete(headword);
+      this.defCache.set(headword, cached); // bump to most-recent
+      return cached;
+    }
+
     if (!this.blockReader) {
       throw new Error(`Dictionary "${this.name}" has no readable .dict.dz`);
     }
@@ -249,7 +300,21 @@ export class Dictionary {
     const raw = await this.blockReader.readBytes(offset, length);
     const { type, text } = this.decodePayload(raw);
 
-    return { word: this.search.getWord(idx), definition: text, dictName: this.name, type };
+    const result: DefinitionResult = {
+      word: headword,
+      definition: text,
+      dictName: this.name,
+      type,
+    };
+
+    this.defCache.set(headword, result);
+    if (this.defCache.size > this.defCacheMax) {
+      const oldest = this.defCache.keys().next().value;
+      if (oldest !== undefined) {
+        this.defCache.delete(oldest);
+      }
+    }
+    return result;
   }
 
   /**
