@@ -2,6 +2,15 @@
 
 This guide shows how to integrate HyperDict into various frameworks and environments.
 
+> **API note (current):** `registerDictionary(config)` is **synchronous** — only
+> `init()`, `addDictionary()`, `getDefinition()` and `define()` are async. The
+> package has two entry points: `hyperdict` (core) and `hyperdict/ui` (popup).
+> The browser globals are `HyperDict` (`dist/hyperdict.min.js`) and `HyperDictUI`
+> (`dist/hyperdict-ui.min.js`). For the reusable popup, prefer
+> `mountHyperDictUI(...)` over hand-wiring. See **[API.md](./API.md)** for the
+> complete, current reference (dictionary sources, caching, all UI options).
+> Some framework snippets below predate the UI layer and show the manual pattern.
+
 ## Vanilla JavaScript
 
 ### HTML Setup

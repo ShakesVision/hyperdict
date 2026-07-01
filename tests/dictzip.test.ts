@@ -9,11 +9,12 @@
  * read bytes back — including a read that straddles a chunk boundary.
  */
 
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { deflateSync } from 'fflate';
 import { ShaekeebDictZipHeaderParser } from '../src/dictzip/header-parser';
 import { ShaekeebBlockReader } from '../src/dictzip/block-reader';
 import { rawInflate } from '../src/dictzip/inflate';
+import { BufferByteSource } from '../src/io/byte-source';
 
 /** Build a minimal but valid dictzip (gzip + RA extra field) buffer. */
 function buildDictzip(content: Uint8Array, chunkLength: number): Uint8Array {
@@ -62,28 +63,6 @@ function buildDictzip(content: Uint8Array, chunkLength: number): Uint8Array {
   return buf.subarray(0, o);
 }
 
-/** Serve a buffer over a mocked fetch that honours Range requests. */
-function mockRangeFetch(buf: Uint8Array): void {
-  vi.stubGlobal('fetch', async (_url: string, opts?: { headers?: Record<string, string> }) => {
-    const range = opts?.headers?.Range ?? '';
-    const m = /bytes=(\d+)-(\d+)/.exec(range);
-    let slice: Uint8Array;
-    if (m) {
-      const start = Number(m[1]);
-      const end = Number(m[2]);
-      slice = buf.subarray(start, Math.min(end + 1, buf.length));
-    } else {
-      slice = buf;
-    }
-    const copy = slice.slice();
-    return {
-      ok: true,
-      status: 206,
-      arrayBuffer: async () => copy.buffer,
-    } as Response;
-  });
-}
-
 describe('DictZip header parser', () => {
   it('reads CHLEN / CHCNT / compressed-length table little-endian', () => {
     const content = new TextEncoder().encode('A'.repeat(50) + 'B'.repeat(50));
@@ -109,10 +88,6 @@ describe('DictZip header parser', () => {
 });
 
 describe('DictZip block reader', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it('reads exact bytes, including across a chunk boundary', async () => {
     // Distinct content so off-by-one / wrong-chunk bugs are obvious.
     const content = new Uint8Array(256);
@@ -121,10 +96,9 @@ describe('DictZip block reader', () => {
     }
     const chunkLength = 30;
     const buf = buildDictzip(content, chunkLength);
-    mockRangeFetch(buf);
 
     const header = new ShaekeebDictZipHeaderParser().parseHeader(buf);
-    const reader = new ShaekeebBlockReader('http://test/x.dict.dz', header, rawInflate);
+    const reader = new ShaekeebBlockReader(new BufferByteSource(buf), header, rawInflate);
 
     // Whole content.
     const all = await reader.readBytes(0, content.length);

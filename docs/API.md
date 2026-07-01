@@ -1,630 +1,247 @@
 # HyperDict API Reference
 
-## Overview
+HyperDict is a pure-frontend StarDict engine. It reads `.ifo/.idx/.dict.dz` (or
+uncompressed `.dict`) `/.syn` files, never loads a whole dictionary into memory
+(for the HTTP path), and fetches only the bytes it needs via HTTP Range +
+on-demand decompression.
 
-HyperDict is an ultra-fast StarDict dictionary engine for the browser. This document describes all public APIs.
+There are **two entry points**:
 
-## Main Classes
+| Import | What |
+|---|---|
+| `hyperdict` | Core engine (DOM-free, framework-agnostic). fflate is bundled. |
+| `hyperdict/ui` | Optional reusable popup UI (tabs, search, triggers, manage panel). |
 
-### HyperDict
-
-The main engine class that manages dictionaries and performs lookups.
-
-```typescript
-const engine = new HyperDict();
+```bash
+npm install hyperdict
 ```
 
-#### Methods
-
-##### `registerDictionary(config: DictionaryConfig): Promise<void>`
-
-Register a dictionary with the engine. Dictionary loading is lazy.
-
-```typescript
-await engine.registerDictionary({
-  name: 'English-Urdu',
-  path: 'https://example.com/dicts/en-ur/'
-});
+```javascript
+import { HyperDict } from 'hyperdict';
+import { mountHyperDictUI } from 'hyperdict/ui';
 ```
 
-**Parameters:**
-- `config.name` (string): Display name of the dictionary
-- `config.path` (string): Base URL to dictionary files (.ifo, .idx, .dict.dz, .syn)
+Plain `<script>` (Blogger/static sites): load `dist/hyperdict.min.js` (global
+`HyperDict`) and `dist/hyperdict-ui.min.js` (global `HyperDictUI`).
 
-##### `init(): Promise<void>`
-
-Initialize the engine. Must be called after registering dictionaries.
-
-```typescript
-await engine.init();
-```
-
-##### `lookup(word: string): LookupResult`
-
-Search for a word across all registered dictionaries. Only checks indices, doesn't load definitions yet.
-
-```typescript
-const results = engine.lookup('کتاب');
-// Returns: {
-//   word: 'کتاب',
-//   dictionaries: [
-//     { name: 'English-Urdu', found: true },
-//     { name: 'Thesaurus', found: false }
-//   ]
-// }
-```
-
-**Returns:** `LookupResult` object with search word and which dictionaries contain it.
-
-##### `getDefinition(dictName: string, word: string): Promise<DefinitionResult>`
-
-Fetch the actual definition from a specific dictionary.
-
-```typescript
-const def = await engine.getDefinition('English-Urdu', 'کتاب');
-// Returns: {
-//   word: 'کتاب',
-//   definition: '...',
-//   dictName: 'English-Urdu'
-// }
-```
-
-**Parameters:**
-- `dictName` (string): Name of the dictionary to search
-- `word` (string): Word to look up
-
-**Returns:** `Promise<DefinitionResult>` with the definition.
-
-##### `getStats(): EngineStats`
-
-Get current engine statistics.
-
-```typescript
-const stats = engine.getStats();
-```
+> **Hosting requirement:** the `.dict.dz` / `.dict` file must be served with
+> **HTTP Range** support and permissive **CORS** (GitHub raw and jsDelivr both
+> qualify). There is no server "meaning" endpoint — definitions are computed in
+> the browser.
 
 ---
 
-## Algorithm Classes
-
-### ShaekeebBinarySearch
-
-High-performance binary search on TypedArray indices.
+## `class HyperDict`
 
 ```typescript
-const searcher = new ShaekeebBinarySearch(index);
+new HyperDict(options?: HyperDictOptions)
 ```
 
-#### Methods
+`HyperDictOptions`:
 
-##### `findWord(word: string): number`
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `cacheSize` | `number` | `32` | Decompressed dictzip chunks kept per dictionary (~2 MB at 32). |
+| `persist` | `boolean` | `false` | Cache `.ifo`/`.idx`/`.syn` fetches in the browser **Cache Storage** across reloads (needs https or localhost). |
 
-Find exact word match.
+### Methods
+
+#### `registerDictionary(config: DictionaryConfig): void`
+Register a dictionary. **Synchronous** — no I/O happens until `init()`.
+
+#### `init(): Promise<void>`
+Load all registered dictionaries in parallel. Per-dictionary failures are logged
+and skipped; it only throws if **every** dictionary fails.
+
+#### `addDictionary(config: DictionaryConfig): Promise<void>`
+Register **and** load one dictionary at runtime (after `init()`). Rejects if the
+name is taken or loading fails.
+
+#### `removeDictionary(name: string): boolean`
+Remove a dictionary. Returns whether it existed.
+
+#### `lookup(word: string): LookupResult`
+Which loaded dictionaries contain `word` (matches headword, ASCII
+case-insensitively, or a `.syn` synonym). Fast and synchronous.
 
 ```typescript
-const index = searcher.findWord('hello');
-// Returns: 42 (word index), or -1 if not found
+engine.lookup('کتاب');
+// → { word: 'کتاب', dictionaries: [ { name: 'UrduLughat', found: true }, … ] }
 ```
 
-##### `findPrefix(prefix: string): number[]`
+#### `getDefinition(dictName: string, word: string): Promise<DefinitionResult | null>`
+Fetch + decode a definition from one dictionary. `null` if the word is absent.
+Results are cached per dictionary (repeat calls are network-free).
 
-Find all words with given prefix.
+#### `define(word: string): Promise<DefinitionResult[]>`
+Fetch `word` from every dictionary that has it, in parallel (absent ones omitted).
 
-```typescript
-const indices = searcher.findPrefix('hel');
-// Returns: [42, 123, 456] (indices of hello, helpful, helmet, etc.)
-```
+#### `getDictionaries(): Array<{ name, metadata, config }>`
+Loaded dictionaries with their parsed `.ifo` metadata and original config.
 
-##### `findWordCaseInsensitive(word: string): number`
+#### `hasDictionary(name: string): boolean`
 
-Case-insensitive search.
+#### `getStats(): { initialized, dictionaryCount, totalWords, memoryUsage, workerSupported }`
 
-```typescript
-const index = searcher.findWordCaseInsensitive('HELLO');
-// Finds 'hello' regardless of case
-```
-
-##### `getWord(index: number): string`
-
-Get word string at index.
-
-```typescript
-const word = searcher.getWord(42); // 'hello'
-```
-
-### ShaekeebPrefixIndex
-
-First 2-byte UTF-8 prefix index for reducing search scope.
-
-```typescript
-const prefixIndex = new ShaekeebPrefixIndex(typedIndex);
-```
-
-#### Methods
-
-##### `getSearchRange(word: string): {start: number, end: number} | null`
-
-Get the index range for a prefix.
-
-```typescript
-const range = prefixIndex.getSearchRange('hello');
-// Returns: { start: 40, end: 150 }
-// Only need to search between indices 40-150
-```
-
-##### `getStats(): PrefixIndexStats`
-
-Get prefix index statistics.
-
-```typescript
-const stats = prefixIndex.getStats();
-// {
-//   totalPrefixes: 65536,
-//   totalWords: 1000000,
-//   averageWordsPerPrefix: 15,
-//   memoryUsage: 125000
-// }
-```
-
-### ShaekeebBloomFilter
-
-Bloom filter for instant negative lookups.
-
-```typescript
-const filter = new ShaekeebBloomFilter(100000, 0.01);
-```
-
-#### Methods
-
-##### `add(word: string): void`
-
-Add word to bloom filter.
-
-```typescript
-filter.add('hello');
-```
-
-##### `mightContain(word: string): boolean`
-
-Check if word might be in dictionary.
-
-```typescript
-if (!filter.mightContain('xyz')) {
-  // Definitely not in dictionary, skip binary search
-}
-```
-
-##### `toBase64(): string`
-
-Serialize to base64 for storage.
-
-```typescript
-const serialized = filter.toBase64();
-localStorage.setItem('bloom_filter', serialized);
-```
-
-##### `fromBase64(base64: string): ShaekeebBloomFilter`
-
-Deserialize from base64.
-
-```typescript
-const filter = ShaekeebBloomFilter.fromBase64(stored);
-```
-
-##### `getStats(): BloomFilterStats`
-
-Get filter statistics.
-
-```typescript
-const stats = filter.getStats();
-// {
-//   bitSize: 524288,
-//   byteSize: 65536,
-//   hashCount: 4,
-//   bitsSet: 250000,
-//   density: 0.476
-// }
-```
-
-### ShaekeebLRUCache
-
-Least Recently Used cache for decompressed blocks.
-
-```typescript
-const cache = new ShaekeebLRUCache(32);
-```
-
-#### Methods
-
-##### `get(blockIndex: number): Uint8Array | null`
-
-Get cached block.
-
-```typescript
-const data = cache.get(5);
-if (data) {
-  // Use cached block
-}
-```
-
-##### `set(blockIndex: number, data: Uint8Array): void`
-
-Cache a decompressed block.
-
-```typescript
-cache.set(5, decompressedBytes);
-```
-
-##### `has(blockIndex: number): boolean`
-
-Check if block is cached.
-
-```typescript
-if (cache.has(5)) {
-  // Block is in cache
-}
-```
-
-##### `clear(): void`
-
-Clear all cached blocks.
-
-```typescript
-cache.clear();
-```
-
-##### `getStats(): CacheStats`
-
-Get cache statistics.
-
-```typescript
-const stats = cache.getStats();
-// {
-//   size: 12,
-//   maxSize: 32,
-//   hitRate: 0.85,
-//   memoryUsage: 1048576
-// }
-```
+#### `exportConfig(): DictionaryConfig[]` / `importConfig(configs): Promise<void>`
+Serialize the registered configs and restore them later (e.g. from
+localStorage). `importConfig` skips names already present.
 
 ---
 
-## File Parsers
+## `DictionaryConfig`
 
-### ShaekeebIdxParser
-
-Parse StarDict .idx files.
-
-```typescript
-const parser = new ShaekeebIdxParser();
-```
-
-#### Methods
-
-##### `parseIdx(buffer: ArrayBuffer): ShaekeebTypedIndex`
-
-Parse .idx buffer.
-
-```typescript
-const index = parser.parseIdx(idxArrayBuffer);
-```
-
-##### `parseIdxFromUrl(url: string): Promise<ShaekeebTypedIndex>`
-
-Fetch and parse .idx from URL.
-
-```typescript
-const index = await parser.parseIdxFromUrl(
-  'https://example.com/dicts/en/en.idx'
-);
-```
-
-### ShaekeebIfoParser
-
-Parse StarDict .ifo metadata files.
-
-```typescript
-const parser = new ShaekeebIfoParser();
-```
-
-#### Methods
-
-##### `parseIfo(buffer: ArrayBuffer): DictionaryMetadata`
-
-Parse .ifo buffer.
-
-```typescript
-const metadata = parser.parseIfo(ifoArrayBuffer);
-// {
-//   version: '2.4.2',
-//   bookname: 'English Dictionary',
-//   wordcount: 100000,
-//   idxfilesize: 2000000,
-//   author: 'Dictionary Author',
-//   ...
-// }
-```
-
-##### `parseIfoFromUrl(url: string): Promise<DictionaryMetadata>`
-
-Fetch and parse .ifo from URL.
-
-```typescript
-const metadata = await parser.parseIfoFromUrl(
-  'https://example.com/dicts/en/en.ifo'
-);
-```
-
-##### `validate(metadata: DictionaryMetadata): boolean`
-
-Validate metadata.
-
-```typescript
-if (parser.validate(metadata)) {
-  // Valid dictionary
-}
-```
-
----
-
-## DictZip Support
-
-### ShaekeebDictZipHeaderParser
-
-Parse dictzip (.dict.dz) headers for random access.
-
-```typescript
-const headerParser = new ShaekeebDictZipHeaderParser();
-```
-
-#### Methods
-
-##### `parseHeader(buffer: ArrayBuffer): DictZipHeader`
-
-Parse dictzip header.
-
-```typescript
-const header = headerParser.parseHeader(headerBuffer);
-// {
-//   blockSize: 65536,
-//   blockOffsets: Uint32Array([0, 65536, 131072, ...]),
-//   totalBlocks: 150
-// }
-```
-
-##### `parseHeaderFromUrl(url: string): Promise<DictZipHeader>`
-
-Fetch and parse header from URL (first 4KB).
-
-```typescript
-const header = await headerParser.parseHeaderFromUrl(
-  'https://example.com/dicts/en/en.dict.dz'
-);
-```
-
-### ShaekeebBlockReader
-
-Read and decompress dictzip blocks.
-
-```typescript
-const blockReader = new ShaekeebBlockReader(header);
-```
-
-#### Methods
-
-##### `readBlock(blockIndex: number): Promise<Uint8Array>`
-
-Read and decompress a block.
-
-```typescript
-const decompressed = await blockReader.readBlock(5);
-```
-
----
-
-## IO
-
-### ShaekeebRangeFetcher
-
-Efficient HTTP range requests for partial downloads.
-
-```typescript
-const fetcher = new ShaekeebRangeFetcher(url);
-```
-
-#### Methods
-
-##### `fetchRange(start: number, end: number): Promise<Uint8Array>`
-
-Fetch bytes in range.
-
-```typescript
-const bytes = await fetcher.fetchRange(1000, 2000);
-```
-
-##### `getContentLength(): Promise<number>`
-
-Get total file size.
-
-```typescript
-const size = await fetcher.getContentLength();
-```
-
----
-
-## Type Definitions
-
-### DictionaryConfig
+Specify a content source in **one** of three ways (checked in this order:
+`archive` → `files` → `path`):
 
 ```typescript
 interface DictionaryConfig {
-  name: string;      // Display name
-  path: string;      // Base URL to dictionary files
+  name: string;                 // unique id
+
+  // (A) one .zip holding all files — downloaded + unzipped in memory
+  archive?: string;
+
+  // (B) explicit file URLs
+  files?: { ifo: string; idx: string; dict: string; syn?: string };
+
+  // (C) folder URL; files assumed to be `<basename>.ext`
+  path?: string;
+  basename?: string;            // defaults to `name`
+
+  // UI hints (used by hyperdict/ui; ignored by the core)
+  label?: string;               // tab label (defaults to name / bookname)
+  lang?: string;                // 'ur', 'ar', 'en', … (drives auto RTL)
+  dir?: 'rtl' | 'ltr';          // overrides auto-direction
+  font?: string;                // CSS font-family for definitions
+  fontUrl?: string;             // stylesheet to inject for `font`
 }
 ```
 
-### LookupResult
+### Content file: `.dict.dz` vs `.dict`
+- **`.dict.dz`** — dictzip (gzip with a random-access chunk table). HyperDict
+  reads only the chunk(s) it needs and inflates them. Preferred.
+- **`.dict`** — the same bytes, uncompressed. HyperDict reads the exact byte
+  range directly (no inflate). Requires HTTP Range support.
 
-```typescript
-interface LookupResult {
-  word: string;
-  dictionaries: Array<{
-    name: string;
-    found: boolean;
-  }>;
-}
-```
+With `path`, HyperDict tries `<name>.dict.dz` first, then `<name>.dict`. With
+`files`, the extension of `files.dict` decides (`.dz` → dictzip, else plain).
 
-### DefinitionResult
+### Archive mode caveat
+`archive` downloads and decompresses the **entire** dictionary into memory (a zip
+can't be range-read from the server). Great for small dictionaries or bundled
+offline use; for large ones prefer `path`/`files` so only needed bytes are read.
+Requires a `.zip` (fflate `unzipSync`).
+
+---
+
+## `DefinitionResult`
 
 ```typescript
 interface DefinitionResult {
-  word: string;
-  definition: string;
+  word: string;        // the canonical headword found
+  definition: string;  // decoded text/HTML
   dictName: string;
+  type?: string;       // StarDict content type: 'h'=HTML, 'm'=plain text, 'g'/'x'=markup…
 }
 ```
 
-### DictionaryMetadata
+Use `type` to decide rendering (the UI renders `h/g/x` as HTML and prettifies the
+rest).
+
+---
+
+## Caching & offline
+
+- **Chunk cache** — decompressed dictzip chunks (LRU, `cacheSize`).
+- **Definition cache** — resolved `word → result` per dictionary (LRU, 300).
+- **Cross-reload** — `new HyperDict({ persist: true })` stores `.ifo/.idx/.syn`
+  in Cache Storage.
 
 ```typescript
-interface DictionaryMetadata {
-  version: string;
-  bookname: string;
-  wordcount: number;
-  synwordcount?: number;
-  idxfilesize: number;
-  dicttype?: string;
-  author?: string;
-  email?: string;
-  website?: string;
-  description?: string;
-  date?: string;
-  sametypesequence?: string;
-}
-```
-
-### ShaekeebTypedIndex
-
-```typescript
-interface ShaekeebTypedIndex {
-  wordsBuffer: Uint8Array;           // Raw UTF-8 words
-  wordOffsets: Uint32Array;          // Offsets into wordsBuffer
-  offsetArray: Uint32Array;          // File offsets in .dict
-  lengthArray: Uint32Array;          // Definition lengths
-  sharedBuffer?: SharedArrayBuffer;  // Optional: for workers
-}
+import { clearFileCache } from 'hyperdict';
+await clearFileCache();     // drop persisted dictionary files
 ```
 
 ---
 
-## Usage Examples
+## UI — `hyperdict/ui`
 
-### Basic Lookup
+### `mountHyperDictUI(options: MountOptions): MountedUI`
+
+Wires the popup + triggers over an engine in one call.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `engine` | `HyperDict` | — | Required. |
+| `dictionaries` | `PopupTab[]` | derived from engine | Explicit tab overrides. |
+| `placeholder` | `string` | `'Search…'` | Search-box placeholder (e.g. `'تلاش کریں'`). |
+| `dir` | `'rtl' \| 'ltr'` | `'rtl'` | Fallback direction when a dict doesn't imply one. |
+| `htmlTypes` | `string[]` | `['h','g','x']` | Content types rendered as raw HTML. |
+| `transform` | `(result, dictName) => string \| HTMLElement` | — | Per-dictionary render override. |
+| `historyLimit` | `number` | `50` | Recent-search cap. |
+| `historyKey` | `string \| null` | `'hyperdict:recent'` | localStorage key; `null` = in-memory. |
+| `attribution` | `boolean \| { text, url? }` | `true` | Credit shown in the ⓘ panel. |
+| `manage` | `boolean` | `true` | Show the ＋ Manage-dictionaries panel. |
+| `persistConfigKey` | `string \| null` | `'hyperdict:dicts'` | localStorage key for user-added dicts; `null` = off. |
+| `root` | `HTMLElement` | `document.body` | Element watched for gestures. |
+| `selection` | `boolean` | `true` | Desktop text-selection → 🔍 chip. |
+| `longPress` | `boolean` | `true` | Mobile long-press → lookup. |
+| `longPressMs` | `number` | `450` | Long-press threshold. |
+
+Returns `MountedUI`: `{ popup, open(word), refresh(), destroy() }`.
 
 ```typescript
-import HyperDict from 'hyperdict';
-
-const engine = new HyperDict();
-
-// Register dictionaries
-await engine.registerDictionary({
-  name: 'English',
-  path: 'https://example.com/dicts/en/'
+const ui = mountHyperDictUI({
+  engine,
+  placeholder: 'تلاش کریں',
+  dir: 'rtl',
+  manage: true,
+  transform: (r, dict) => (dict === 'UDB' ? r.definition.replaceAll('======', ' · ') : r.definition),
 });
-
-// Initialize
-await engine.init();
-
-// Lookup word
-const results = engine.lookup('hello');
-console.log(results); // { word: 'hello', dictionaries: [...] }
-
-// Get definition
-if (results.dictionaries[0]?.found) {
-  const def = await engine.getDefinition('English', 'hello');
-  console.log(def.definition);
-}
 ```
 
-### Multiple Dictionaries
+The popup provides: dictionary **tabs** (missing ones dimmed), a **search box**,
+**`bword://` and relative link** lookups, a **← back** button, a **🕘 recent**
+dropdown, an **ⓘ info/attribution** panel, and a **＋ Manage** panel (add/remove
+dictionaries by archive URL or explicit file URLs, persisted to localStorage).
 
-```typescript
-const engine = new HyperDict();
-
-await engine.registerDictionary({
-  name: 'English-Urdu',
-  path: 'https://example.com/dicts/en-ur/'
-});
-
-await engine.registerDictionary({
-  name: 'English-Hindi',
-  path: 'https://example.com/dicts/en-hi/'
-});
-
-await engine.init();
-
-// Search shows tabs for all matching dictionaries
-const results = engine.lookup('hello');
-// results.dictionaries has both English-Urdu and English-Hindi
-
-// Load from specific dictionary
-const urduDef = await engine.getDefinition('English-Urdu', 'hello');
-const hindiDef = await engine.getDefinition('English-Hindi', 'hello');
-```
-
-### Working with Algorithms Directly
-
-```typescript
-import {
-  ShaekeebBinarySearch,
-  ShaekeebBloomFilter,
-  ShaekeebPrefixIndex,
-  ShaekeebLRUCache,
-} from 'hyperdict';
-
-// Use algorithms for custom implementations
-const bloomFilter = new ShaekeebBloomFilter(100000, 0.01);
-bloomFilter.add('word1');
-bloomFilter.add('word2');
-
-if (bloomFilter.mightContain('word1')) {
-  // Proceed with binary search
-  const searcher = new ShaekeebBinarySearch(index);
-  const result = searcher.findWord('word1');
-}
-```
+### Other UI exports
+- `ShakeebDictPopup` — the popup component (use directly for a custom mount).
+- `attachTriggers(options)` — selection + long-press detection; returns `detach()`.
+- `SearchHistory` — bounded, localStorage-backed recent list.
+- `ManageDictionariesPanel` — the add/remove overlay.
+- `prettifyPlainText`, `resolveLinkWord`, `escapeHtml` — pure formatting helpers.
 
 ---
 
-## Performance Benchmarks
+## Low-level building blocks (advanced)
 
-- **Binary Search**: &lt;1ms for 1M words
-- **Prefix Index Lookup**: &lt;0.1ms
-- **Bloom Filter Check**: &lt;0.01ms
-- **Block Decompression**: &lt;1ms
-- **HTTP Range Request**: 5-15ms (network dependent)
-- **Total Lookup**: &lt;20ms (first access)
+Exported from `hyperdict` for custom pipelines:
 
----
-
-## Browser Support
-
-- Chrome/Edge: ✅ Full support
-- Firefox: ✅ Full support
-- Safari: ✅ Full support
-- Mobile browsers: ✅ Full support
-
-## Future APIs (Planned)
-
-- `fuzzySearch(word, threshold)` - Fuzzy matching
-- `getSynonyms(word)` - Get synonyms from .syn file
-- `getAudio(word)` - Get pronunciation (if available)
-- `prefetch(words)` - Preload definitions
-- `exportCache()` / `importCache()` - Persist cache
+- `Dictionary` — one loaded dictionary (`Dictionary.load(config, { inflate, cacheSize, persist })`).
+- `resolveFiles(config)` — config → concrete file URLs.
+- `ByteSource`, `HttpByteSource`, `BufferByteSource` — "read a byte range" abstraction.
+- `PlainDictReader` / `ShaekeebBlockReader` — uncompressed vs dictzip content readers (both `ContentReader`).
+- `ShaekeebDictZipHeaderParser` — parse the dictzip RA header.
+- `rawInflate` — streaming raw-DEFLATE inflate (handles flushed dictzip chunks).
+- `ShaekeebIdxParser`, `ShaekeebIfoParser`, `ShaekeebTypedIndexBuilder`, `TypedIndexReader`.
+- `ShaekeebBinarySearch`, `ShaekeebPrefixIndex`, `ShaekeebBloomFilter`, `ShaekeebLRUCache`.
+- `ShaekeebRangeFetcher` — HTTP Range helper.
 
 ---
 
-## License
+## Performance & memory targets
 
-MIT
+| Metric | Target |
+|---|---|
+| Index (binary) search | < 1 ms |
+| Total lookup (warm cache) | < 1 ms |
+| Total lookup (cold, network) | ~5–20 ms |
+| Memory (1M-word dict) | ~25 MB (index ~22 MB + bloom 256 KB + prefix ~150 KB + chunk cache ~2 MB) |
+
+### Known limitations (v0.x)
+- `idxoffsetbits=64` dictionaries are not supported (offsets are stored as
+  `Uint32`); the common 32-bit format is.
+- ASCII ordering assumes byte/`g_ascii_strcasecmp`-compatible sort; exotic
+  collations may need a custom comparator.
+- Multi-field `sametypesequence` is decoded best-effort as its first type.

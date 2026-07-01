@@ -87,7 +87,28 @@ mountHyperDictUI({
 });
 ```
 
-### Managing dictionaries in code
+### Dictionary sources
+
+A dictionary's files can be provided three ways (see `docs/API.md`):
+
+```javascript
+// (A) folder URL — files are <name>.ifo/.idx/.dict.dz(/.syn). Tries .dict.dz then .dict.
+engine.registerDictionary({ name: 'MyDict', path: 'https://cdn/dicts/mydict/' });
+
+// (B) explicit file URLs (robust when names differ). .dict.dz OR uncompressed .dict both work.
+engine.registerDictionary({
+  name: 'MyDict',
+  files: { ifo: '…/x.ifo', idx: '…/x.idx', dict: '…/x.dict.dz', syn: '…/x.syn' },
+});
+
+// (C) a single .zip archive holding all files (downloaded + unzipped in memory)
+engine.registerDictionary({ name: 'MyDict', archive: 'https://cdn/mydict.zip' });
+```
+
+- **`.dict.dz` vs `.dict`:** `.dict.dz` is dictzip-compressed for random access (preferred — only needed chunks are fetched). A plain `.dict` is the same bytes uncompressed; HyperDict reads the exact byte range directly (requires Range support).
+- **Archive caveat:** a `.zip` is fully downloaded + decompressed into memory (no range reads) — best for small/offline dictionaries; prefer `path`/`files` for large ones.
+
+### Managing dictionaries at runtime
 
 ```javascript
 await engine.addDictionary({

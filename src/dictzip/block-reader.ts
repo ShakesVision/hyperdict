@@ -1,37 +1,38 @@
 /**
- * Block Reader - Random-access reads from a dictzip (.dict.dz) file
+ * Block Reader - random-access reads from dictzip-compressed content
  * Authored by Shakeeb Ahmad
  *
  * Given an UNCOMPRESSED byte range (offset + length, as stored in the .idx),
- * this fetches only the compressed chunk(s) covering that range over HTTP Range
- * requests, raw-inflates them, and returns the exact slice. Decompressed chunks
- * are kept in a small LRU so repeated/nearby lookups don't refetch.
+ * this reads only the compressed chunk(s) covering that range from a ByteSource,
+ * raw-inflates them, and returns the exact slice. Decompressed chunks are kept
+ * in a small LRU so repeated/nearby lookups don't refetch.
  *
  * Each dictzip chunk is an independent RAW DEFLATE stream (no per-chunk gzip or
- * zlib wrapper), so it must be inflated with a raw inflate (fflate.inflateSync),
+ * zlib wrapper), so it must be inflated with a raw inflate (see rawInflate),
  * NOT a gzip/zlib auto-detecting `decompress`.
  */
 
 import type { DictZipHeader } from '../core/types';
-import { ShaekeebRangeFetcher } from '../io/range-fetch';
+import type { ByteSource } from '../io/byte-source';
+import type { ContentReader } from '../dict/content-reader';
 import { ShaekeebLRUCache } from '../algorithms/lru-cache';
 
 /** Raw-DEFLATE inflate function, injected so the core stays decompressor-agnostic. */
 export type RawInflate = (data: Uint8Array) => Uint8Array;
 
-export class ShaekeebBlockReader {
-  private fetcher: ShaekeebRangeFetcher;
+export class ShaekeebBlockReader implements ContentReader {
+  private source: ByteSource;
   private header: DictZipHeader;
   private cache: ShaekeebLRUCache;
   private inflate: RawInflate;
 
   constructor(
-    dictUrl: string,
+    source: ByteSource,
     header: DictZipHeader,
     inflate: RawInflate,
     cacheSize: number = 32
   ) {
-    this.fetcher = new ShaekeebRangeFetcher(dictUrl);
+    this.source = source;
     this.header = header;
     this.cache = new ShaekeebLRUCache(cacheSize);
     this.inflate = inflate;
@@ -62,7 +63,6 @@ export class ShaekeebBlockReader {
       const chunkStart = chunkIndex * this.header.chunkLength;
       const offsetInChunk = cursor - chunkStart;
       if (offsetInChunk >= chunk.length) {
-        // Requested bytes lie beyond the data this chunk actually decoded to.
         throw new Error(
           `Offset ${cursor} beyond chunk ${chunkIndex} (chunk decoded ${chunk.length} bytes)`
         );
@@ -88,24 +88,16 @@ export class ShaekeebBlockReader {
       return cached;
     }
 
-    const range = this.compressedRange(chunkIndex);
-    const compressed = await this.fetcher.fetchRange(range.start, range.end);
+    const start = this.header.cumOffsets[chunkIndex];
+    const end = start + this.header.chunkCompLengths[chunkIndex];
+    const compressed = await this.source.read(start, end);
     const decompressed = this.inflate(compressed);
 
     this.cache.set(chunkIndex, decompressed);
     return decompressed;
   }
 
-  /** Absolute compressed [start, end) of a chunk. */
-  private compressedRange(chunkIndex: number): { start: number; end: number } {
-    const start = this.header.cumOffsets[chunkIndex];
-    const end = start + this.header.chunkCompLengths[chunkIndex];
-    return { start, end };
-  }
-
-  /**
-   * Warm the cache for chunks following `currentChunk` (sequential reading aid).
-   */
+  /** Warm the cache for chunks following `currentChunk` (sequential reading aid). */
   public async prefetchNextChunks(currentChunk: number, count: number = 2): Promise<void> {
     const promises: Promise<unknown>[] = [];
     for (let i = 1; i <= count; i++) {

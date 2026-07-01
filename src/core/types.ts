@@ -72,6 +72,14 @@ export interface DictionaryConfig {
   basename?: string;
   /** Explicit file URLs. Takes precedence over `path`/`basename`. */
   files?: DictionaryFiles;
+  /**
+   * URL of a single `.zip` archive containing all files (`.ifo`, `.idx`,
+   * `.dict`/`.dict.dz`, optional `.syn`). Takes precedence over everything.
+   * NOTE: the whole archive is downloaded and decompressed into memory (no
+   * range reads), so this trades memory for one request — best for smaller
+   * dictionaries or bundled/offline use.
+   */
+  archive?: string;
 
   // --- UI hints (optional) ---
   /** Human-readable tab label. Defaults to `name`. */

@@ -19,35 +19,37 @@ export class ShaekeebIdxParser {
 
   /**
    * Parse .idx file buffer into TypedIndex structure
-   * Returns built index ready for binary search
+   * Returns built index ready for binary search.
+   * Accepts an ArrayBuffer (network) or a Uint8Array (e.g. extracted from a zip).
    */
-  public parseIdx(buffer: ArrayBuffer): ReturnType<ShaekeebTypedIndexBuilder['build']> {
-    const view = new DataView(buffer);
+  public parseIdx(input: ArrayBuffer | Uint8Array): ReturnType<ShaekeebTypedIndexBuilder['build']> {
+    const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const len = bytes.byteLength;
     const builder = new ShaekeebTypedIndexBuilder();
     let offset = 0;
 
-    while (offset < view.byteLength) {
+    while (offset < len) {
       // Read null-terminated word
       const wordStart = offset;
       let wordEnd = offset;
 
       // Find null terminator
-      while (wordEnd < view.byteLength && view.getUint8(wordEnd) !== 0) {
+      while (wordEnd < len && view.getUint8(wordEnd) !== 0) {
         wordEnd++;
       }
 
-      if (wordEnd >= view.byteLength) {
+      if (wordEnd >= len) {
         break; // Malformed entry
       }
 
-      // Decode word
-      const wordBytes = new Uint8Array(buffer, wordStart, wordEnd - wordStart);
-      const word = this.decoder.decode(wordBytes);
+      // Decode word (subarray keeps us correct even for a view with a byteOffset)
+      const word = this.decoder.decode(bytes.subarray(wordStart, wordEnd));
 
       offset = wordEnd + 1; // Skip null terminator
 
       // Check if we have enough bytes for offset and length
-      if (offset + 8 > view.byteLength) {
+      if (offset + 8 > len) {
         break;
       }
 
@@ -92,9 +94,10 @@ export class ShaekeebIfoParser {
   }
 
   /**
-   * Parse .ifo file buffer into metadata
+   * Parse .ifo file buffer into metadata.
+   * Accepts an ArrayBuffer (network) or a Uint8Array (e.g. extracted from a zip).
    */
-  public parseIfo(buffer: ArrayBuffer): DictionaryMetadata {
+  public parseIfo(buffer: ArrayBuffer | Uint8Array): DictionaryMetadata {
     const text = this.decoder.decode(buffer);
     const lines = text.split('\n');
     const metadata: Record<string, string> = {};

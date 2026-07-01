@@ -106,9 +106,10 @@ export class ManageDictionariesPanel {
           <div><label>Name (unique id)</label><input data-f="name" placeholder="MyDict" /></div>
           <div><label>Label (shown on tab)</label><input data-f="label" placeholder="My Dictionary" /></div>
         </div>
+        <div><label>Archive .zip URL (optional — provides all files)</label><input data-f="archive" placeholder="https://…/MyDict.zip" /></div>
         <div><label>.ifo URL *</label><input data-f="ifo" placeholder="https://…/MyDict.ifo" /></div>
         <div><label>.idx URL *</label><input data-f="idx" placeholder="https://…/MyDict.idx" /></div>
-        <div><label>.dict.dz URL *</label><input data-f="dict" placeholder="https://…/MyDict.dict.dz" /></div>
+        <div><label>.dict.dz or .dict URL *</label><input data-f="dict" placeholder="https://…/MyDict.dict.dz" /></div>
         <div><label>.syn URL (optional)</label><input data-f="syn" placeholder="https://…/MyDict.syn" /></div>
         <div class="${PREFIX}-two">
           <div><label>Language</label>
@@ -180,11 +181,17 @@ export class ManageDictionariesPanel {
   private async submit(): Promise<void> {
     this.err.textContent = '';
     const name = this.val('name');
+    const archive = this.val('archive');
     const ifo = this.val('ifo');
     const idx = this.val('idx');
     const dict = this.val('dict');
-    if (!name || !ifo || !idx || !dict) {
-      this.err.textContent = 'Name, .ifo, .idx and .dict.dz URLs are required.';
+
+    if (!name) {
+      this.err.textContent = 'A unique name is required.';
+      return;
+    }
+    if (!archive && !(ifo && idx && dict)) {
+      this.err.textContent = 'Provide an archive .zip URL, or all of .ifo, .idx and .dict URLs.';
       return;
     }
 
@@ -192,11 +199,13 @@ export class ManageDictionariesPanel {
     const config: DictionaryConfig = {
       name,
       label: this.val('label') || name,
-      files: { ifo, idx, dict, syn: this.val('syn') || undefined },
       lang: this.val('lang') || undefined,
       dir: dir === 'rtl' || dir === 'ltr' ? dir : undefined,
       font: this.val('font') || undefined,
       fontUrl: this.val('fontUrl') || undefined,
+      ...(archive
+        ? { archive }
+        : { files: { ifo, idx, dict, syn: this.val('syn') || undefined } }),
     };
 
     this.addBtn.disabled = true;
@@ -204,7 +213,7 @@ export class ManageDictionariesPanel {
     try {
       await this.opts.add(config);
       // Reset the URL/name fields on success.
-      ['name', 'label', 'ifo', 'idx', 'dict', 'syn', 'font', 'fontUrl'].forEach((f) => {
+      ['name', 'label', 'archive', 'ifo', 'idx', 'dict', 'syn', 'font', 'fontUrl'].forEach((f) => {
         if (this.fields[f]) (this.fields[f] as HTMLInputElement).value = '';
       });
       this.renderList();

@@ -17,10 +17,13 @@ import { TypedIndexReader } from '../index/typed-index';
 import { ShaekeebBinarySearch } from '../algorithms/binary-search';
 import { ShaekeebPrefixIndex } from '../algorithms/prefix-index';
 import { ShaekeebBloomFilter } from '../algorithms/bloom-filter';
+import { unzipSync } from 'fflate';
+
 import { ShaekeebDictZipHeaderParser } from '../dictzip/header-parser';
 import { ShaekeebBlockReader, type RawInflate } from '../dictzip/block-reader';
-import { ShaekeebRangeFetcher } from '../io/range-fetch';
 import { fetchBuffer } from '../io/cached-fetch';
+import { HttpByteSource, BufferByteSource, type ByteSource } from '../io/byte-source';
+import { PlainDictReader, type ContentReader } from './content-reader';
 
 import type {
   DictionaryConfig,
@@ -74,7 +77,7 @@ export class Dictionary {
   private readonly prefixIndex: ShaekeebPrefixIndex;
   private readonly bloom: ShaekeebBloomFilter;
   private readonly synonyms: Map<string, number> | null;
-  private readonly blockReader: ShaekeebBlockReader | null;
+  private readonly contentReader: ContentReader | null;
   /** Single content type from `sametypesequence` ('' if not declared). */
   private readonly contentType: string;
   private readonly decoder = new TextDecoder('utf-8');
@@ -87,7 +90,7 @@ export class Dictionary {
     metadata: DictionaryMetadata;
     index: ShaekeebTypedIndex;
     synonyms: Map<string, number> | null;
-    blockReader: ShaekeebBlockReader | null;
+    contentReader: ContentReader | null;
     defCacheMax: number;
   }) {
     this.config = args.config;
@@ -95,7 +98,7 @@ export class Dictionary {
     this.metadata = args.metadata;
     this.index = args.index;
     this.synonyms = args.synonyms;
-    this.blockReader = args.blockReader;
+    this.contentReader = args.contentReader;
     this.defCacheMax = args.defCacheMax;
     this.contentType = args.metadata.sametypesequence ?? '';
 
@@ -109,16 +112,25 @@ export class Dictionary {
   }
 
   /**
-   * Fetch and build a dictionary from its base path. Loads .ifo + .idx
-   * synchronously-critical data, and best-effort loads .syn and .dict.dz
-   * (a dictionary without a readable .dict.dz can still answer "exists?").
+   * Fetch and build a dictionary. Three source shapes are supported:
+   *   - `archive`: one .zip holding all files (downloaded + unzipped in memory)
+   *   - explicit `files`: exact URLs for each file
+   *   - `path`: files named `<basename>.ext` under a folder URL
+   *
+   * The content file may be dictzip (`.dict.dz`) or an uncompressed `.dict`. A
+   * dictionary whose content is unreadable still answers "exists?" queries.
    */
   public static async load(config: DictionaryConfig, deps: DictionaryDeps): Promise<Dictionary> {
-    const files = resolveFiles(config);
-    const persist = deps.persist;
-
     const ifoParser = new ShaekeebIfoParser();
     const idxParser = new ShaekeebIdxParser();
+    const defCacheMax = deps.defCacheSize ?? 300;
+
+    if (config.archive) {
+      return Dictionary.loadFromArchive(config, deps, ifoParser, idxParser, defCacheMax);
+    }
+
+    const files = resolveFiles(config);
+    const persist = deps.persist;
 
     const metadata = ifoParser.parseIfo(await fetchBuffer(files.ifo, { persist }));
     if (!ifoParser.validate(metadata)) {
@@ -132,39 +144,142 @@ export class Dictionary {
     const synUrl = config.files ? config.files.syn : files.syn;
     const synonyms = synUrl ? await Dictionary.tryLoadSynonyms(synUrl, persist) : null;
 
-    let blockReader: ShaekeebBlockReader | null = null;
+    // Content candidates: an explicit URL as given, or (path form) .dict.dz then .dict.
+    const candidates = config.files
+      ? [config.files.dict]
+      : [files.dict, files.dict.replace(/\.dz$/i, '')];
+    const contentReader = await Dictionary.buildHttpContentReader(candidates, config.name, deps);
+
+    return new Dictionary({ config, metadata, index, synonyms, contentReader, defCacheMax });
+  }
+
+  /** Load everything from a single in-memory .zip archive. */
+  private static async loadFromArchive(
+    config: DictionaryConfig,
+    deps: DictionaryDeps,
+    ifoParser: ShaekeebIfoParser,
+    idxParser: ShaekeebIdxParser,
+    defCacheMax: number
+  ): Promise<Dictionary> {
+    const archiveBytes = new Uint8Array(
+      await fetchBuffer(config.archive as string, { persist: deps.persist })
+    );
+
+    let entries: Record<string, Uint8Array>;
     try {
-      const header = await Dictionary.loadDictZipHeader(files.dict);
-      blockReader = new ShaekeebBlockReader(files.dict, header, deps.inflate, deps.cacheSize);
-    } catch (err) {
-      // Lookups (existence) still work; getDefinition will report the failure.
-      console.warn(`[hyperdict] Could not set up .dict.dz for "${config.name}":`, err);
+      entries = unzipSync(archiveBytes);
+    } catch (e) {
+      throw new Error(`Failed to unzip archive for "${config.name}": ${String(e)}`);
     }
 
-    return new Dictionary({
-      config,
-      metadata,
-      index,
-      synonyms,
-      blockReader,
-      defCacheMax: deps.defCacheSize ?? 300,
-    });
+    const pick = (ext: string): Uint8Array | null => {
+      const key = Object.keys(entries).find((k) => k.toLowerCase().endsWith(ext));
+      return key ? entries[key] : null;
+    };
+
+    const ifoBytes = pick('.ifo');
+    const idxBytes = pick('.idx');
+    if (!ifoBytes || !idxBytes) {
+      throw new Error(`Archive for "${config.name}" is missing a .ifo or .idx file`);
+    }
+
+    const metadata = ifoParser.parseIfo(ifoBytes);
+    if (!ifoParser.validate(metadata)) {
+      throw new Error(`Invalid .ifo metadata in archive for "${config.name}"`);
+    }
+    const index = idxParser.parseIdx(idxBytes);
+
+    const synBytes = pick('.syn');
+    const synonyms = synBytes ? Dictionary.parseSynonyms(synBytes) : null;
+
+    let contentReader: ContentReader | null = null;
+    const dzBytes = pick('.dict.dz');
+    if (dzBytes) {
+      try {
+        const source = new BufferByteSource(dzBytes);
+        const header = await Dictionary.loadDictZipHeader(source);
+        contentReader = new ShaekeebBlockReader(source, header, deps.inflate, deps.cacheSize);
+      } catch (e) {
+        console.warn(`[hyperdict] Bad .dict.dz inside archive for "${config.name}":`, e);
+      }
+    } else {
+      const plainBytes = pick('.dict');
+      if (plainBytes) {
+        contentReader = new PlainDictReader(new BufferByteSource(plainBytes));
+      }
+    }
+    if (!contentReader) {
+      console.warn(
+        `[hyperdict] Archive for "${config.name}" has no readable .dict/.dict.dz; definitions unavailable`
+      );
+    }
+
+    return new Dictionary({ config, metadata, index, synonyms, contentReader, defCacheMax });
   }
 
   /**
-   * Robustly fetch + parse the dictzip header. The RA chunk table can exceed a
-   * fixed-size probe for very large dictionaries, so we read XLEN first, then
-   * fetch exactly enough bytes to cover the whole gzip header.
+   * Build a content reader for the first usable candidate URL. `.dict.dz` URLs
+   * are read as dictzip; anything else is treated as an uncompressed `.dict`,
+   * which requires HTTP Range support (otherwise a read would download the whole
+   * file). Returns null if no candidate is usable (existence lookups still work).
    */
-  private static async loadDictZipHeader(dictUrl: string): Promise<DictZipHeader> {
-    const fetcher = new ShaekeebRangeFetcher(dictUrl);
+  private static async buildHttpContentReader(
+    candidates: string[],
+    name: string,
+    deps: DictionaryDeps
+  ): Promise<ContentReader | null> {
+    for (const url of candidates) {
+      const isDz = /\.dz(\?|$)/i.test(url);
+      try {
+        const source = new HttpByteSource(url);
+        if (isDz) {
+          const header = await Dictionary.loadDictZipHeader(source);
+          return new ShaekeebBlockReader(source, header, deps.inflate, deps.cacheSize);
+        }
+        if (await Dictionary.serverSupportsRange(url)) {
+          return new PlainDictReader(source);
+        }
+      } catch {
+        // Try the next candidate.
+      }
+    }
+    console.warn(`[hyperdict] No readable .dict/.dict.dz for "${name}"; definitions unavailable`);
+    return null;
+  }
+
+  /** HEAD-free Range probe that avoids buffering a large 200 (no-range) body. */
+  private static async serverSupportsRange(url: string): Promise<boolean> {
+    try {
+      const res = await fetch(url, { headers: { Range: 'bytes=0-1' } });
+      const ok = res.status === 206;
+      try {
+        await res.body?.cancel();
+      } catch {
+        /* ignore */
+      }
+      if (!ok && res.status === 200) {
+        console.warn(
+          `[hyperdict] ${url} ignored Range (status 200); an uncompressed .dict needs Range support`
+        );
+      }
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Robustly parse the dictzip header from a ByteSource. The RA chunk table can
+   * exceed a fixed-size probe for large dictionaries, so we read XLEN first, then
+   * read exactly enough bytes to cover the whole gzip header.
+   */
+  private static async loadDictZipHeader(source: ByteSource): Promise<DictZipHeader> {
     const parser = new ShaekeebDictZipHeaderParser();
 
     // Probe: base header (10) + XLEN (2) + a little slack for FNAME/FCOMMENT.
-    const probe = await fetcher.fetchRange(0, 512);
+    const probe = await source.read(0, 512);
     let headerBytes = probe;
 
-    // If the full extra field + name fields don't fit in the probe, refetch.
     if (probe.length >= 12) {
       const view = new DataView(probe.buffer, probe.byteOffset, probe.byteLength);
       const flags = view.getUint8(3);
@@ -172,7 +287,7 @@ export class Dictionary {
         const xlen = view.getUint16(10, true);
         const needed = 12 + xlen + 512; // extra field + room for name/comment/crc
         if (needed > probe.length) {
-          headerBytes = await fetcher.fetchRange(0, needed);
+          headerBytes = await source.read(0, needed);
         }
       }
     }
@@ -180,23 +295,25 @@ export class Dictionary {
     return parser.parseHeader(headerBytes);
   }
 
-  /**
-   * Parse a StarDict .syn file: repeated [word\0][u32 BE index-into-idx].
-   * Returns null if absent. Maps each synonym to the .idx entry it points at.
-   */
+  /** Fetch + parse a StarDict .syn file. Returns null if absent/unreadable. */
   private static async tryLoadSynonyms(
     synUrl: string,
     persist?: boolean
   ): Promise<Map<string, number> | null> {
-    let buffer: ArrayBuffer;
     try {
-      buffer = await fetchBuffer(synUrl, { persist });
+      const buffer = await fetchBuffer(synUrl, { persist });
+      return Dictionary.parseSynonyms(new Uint8Array(buffer));
     } catch {
       return null;
     }
+  }
 
-    const bytes = new Uint8Array(buffer);
-    const view = new DataView(buffer);
+  /**
+   * Parse a StarDict .syn buffer: repeated [word\0][u32 BE index-into-idx].
+   * Maps each synonym to the .idx entry it points at. Null if empty.
+   */
+  private static parseSynonyms(bytes: Uint8Array): Map<string, number> | null {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const decoder = new TextDecoder('utf-8');
     const map = new Map<string, number>();
     let offset = 0;
@@ -291,13 +408,13 @@ export class Dictionary {
       return cached;
     }
 
-    if (!this.blockReader) {
-      throw new Error(`Dictionary "${this.name}" has no readable .dict.dz`);
+    if (!this.contentReader) {
+      throw new Error(`Dictionary "${this.name}" has no readable .dict/.dict.dz`);
     }
 
     const offset = this.index.offsetArray[idx];
     const length = this.index.lengthArray[idx];
-    const raw = await this.blockReader.readBytes(offset, length);
+    const raw = await this.contentReader.readBytes(offset, length);
     const { type, text } = this.decodePayload(raw);
 
     const result: DefinitionResult = {
@@ -351,7 +468,7 @@ export class Dictionary {
   }
 
   public get hasDefinitions(): boolean {
-    return this.blockReader !== null;
+    return this.contentReader !== null;
   }
 
   public getMemoryUsage(): number {

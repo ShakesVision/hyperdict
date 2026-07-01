@@ -181,48 +181,59 @@ CachedBlock {
 
 ### 7. DictZip Support (`dictzip/`)
 
-**Responsibility**: Random access decompression of .dict.dz files
+**Responsibility**: Random access decompression of `.dict.dz` files (and reading
+uncompressed `.dict` files via `dict/content-reader.ts`).
 
 #### Header Parser (`header-parser.ts`)
 
-```
-DictZip Header:
-┌─────────────────┬──────────┐
-│ Gzip Header     │ RA Field │
-└─────────────────┴──────────┘
+A `.dict.dz` is a standard gzip stream whose payload is split into fixed-size
+**uncompressed** chunks, each an independent raw-DEFLATE stream (so any chunk can
+be inflated in isolation). The chunk table lives in the gzip "RA" extra subfield,
+**all little-endian**:
 
-RA Field structure:
-┌────────┬──────────┬──────────┐
-│ length │blockSize │offsets[] │
-└────────┴──────────┴──────────┘
+```
+gzip header (10 bytes) │ XLEN │ extra field { 'R''A', LEN, VER, CHLEN, CHCNT, CHUNKS[CHCNT] } │ [FNAME] …
 ```
 
-**Parsing**:
-1. Fetch first 4KB of .dict.dz
-2. Find gzip extra field marker (0x1f 0x8b)
-3. Parse ISIZE to find RA field size
-4. Extract blockSize and all block offsets
+- `CHLEN` (u16): uncompressed bytes per chunk (e.g. 58315)
+- `CHCNT` (u16): number of chunks
+- `CHUNKS[i]` (u16 each): the **COMPRESSED length** of chunk `i` (not an offset)
 
-**Output**:
+**Parsing** (`parseHeader`): validate gzip magic → read `XLEN` → scan for the
+`RA` subfield → read `CHLEN/CHCNT` + the compressed-length table → skip
+`FNAME/FCOMMENT/FHCRC` to find `dataStart` → prefix-sum the lengths into absolute
+compressed offsets.
+
+**Output** (`DictZipHeader`):
 ```typescript
 {
-  blockSize: 65536,
-  blockOffsets: Uint32Array([0, 65536, 131072, ...]),
-  totalBlocks: 150
+  chunkLength: 58315,
+  chunkCount: 818,
+  chunkCompLengths: Uint32Array([10877, 11269, …]),
+  cumOffsets: Uint32Array([dataStart, dataStart+10877, …]),
+  dataStart: 1674,
 }
 ```
 
-#### Block Reader (`block-reader.ts`)
+> ⚠️ Reading these fields as big-endian, or treating the table as absolute
+> offsets, was the original bug that made every definition read fail.
+
+#### Block Reader (`block-reader.ts`) + `rawInflate` (`inflate.ts`)
+
+Reads over a `ByteSource` (HTTP range **or** in-memory buffer). To read
+uncompressed offset `O`: `chunk = ⌊O / chunkLength⌋`, fetch
+`[cumOffsets[chunk], cumOffsets[chunk] + chunkCompLengths[chunk])`, then inflate.
 
 **Process**:
-1. Check LRU cache for decompressed block
-2. If cached, return immediately (<0.1ms)
-3. If not cached:
-   - Determine byte range from blockOffsets
-   - HTTP Range request to fetch compressed block
-   - Decompress with fflate
-   - Store in LRU cache
-   - Return decompressed bytes
+1. Check the LRU cache for the decompressed chunk (<0.1 ms hit).
+2. Else read the compressed chunk bytes from the `ByteSource`.
+3. Inflate with `rawInflate` — a **streaming** raw-DEFLATE inflate. (Flushed
+   dictzip chunks have no final-block marker, so one-shot `inflateSync` throws
+   "unexpected EOF"; the streaming decoder handles them.)
+4. Cache and return; `readBytes` stitches across chunk boundaries.
+
+Uncompressed `.dict` files use `PlainDictReader`, which just reads the requested
+byte range straight from the `ByteSource` — no header, no inflate.
 
 ### 8. HTTP Range Fetcher (`io/range-fetch.ts`)
 

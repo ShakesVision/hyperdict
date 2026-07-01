@@ -13,6 +13,12 @@ export type { HyperDictOptions } from './core/engine';
 // Single-dictionary unit (advanced / custom usage)
 export { Dictionary, resolveFiles } from './dict/dictionary';
 export type { DictionaryDeps } from './dict/dictionary';
+export { PlainDictReader } from './dict/content-reader';
+export type { ContentReader } from './dict/content-reader';
+
+// Byte sources (HTTP range / in-memory buffer)
+export { HttpByteSource, BufferByteSource } from './io/byte-source';
+export type { ByteSource } from './io/byte-source';
 
 // Types
 export type {
