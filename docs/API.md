@@ -44,6 +44,8 @@ new HyperDict(options?: HyperDictOptions)
 | `cacheSize` | `number` | `32` | Decompressed dictzip chunks kept per dictionary (~2 MB at 32). |
 | `persist` | `boolean` | `false` | Cache `.ifo`/`.idx`/`.syn` fetches in the browser **Cache Storage** across reloads (needs https or localhost). |
 | `bloom` | `boolean` | `false` | Build a per-dictionary Bloom filter for O(1) negatives. Off by default: prefix + binary search already give O(log n) negatives, and skipping it avoids a full-corpus hashing pass at load (a real win for large dicts on low-end devices). |
+| `normalize` | `boolean` | `false` | Build a diacritic-normalized headword map so a **bare** query finds a **diacritic-bearing** headword. Costs a full-corpus pass at load. Query-side diacritic stripping works without it (see below). |
+| `preload` | `boolean` | `false` | Download whole content files up front instead of range-reading. With `persist`, caches the entire dictionary to the device — "download once, offline forever" (Ionic/Android). Also settable per-dictionary via `DictionaryConfig.preload`. |
 
 ### Methods
 
@@ -132,7 +134,10 @@ interface DictionaryConfig {
 
   // (C) folder URL; files assumed to be `<basename>.ext`
   path?: string;
-  basename?: string;            // defaults to `name`
+  basename?: string;
+
+  // Download the whole content file up front (offline); overrides engine preload.
+  preload?: boolean;            // defaults to `name`
 
   // UI hints (used by hyperdict/ui; ignored by the core)
   label?: string;               // tab label (defaults to name / bookname)
@@ -264,6 +269,10 @@ Exported from `hyperdict` for custom pipelines:
 - `PlainDictReader` / `ShaekeebBlockReader` — uncompressed vs dictzip content readers (both `ContentReader`).
 - `ShaekeebDictZipHeaderParser` — parse the dictzip RA header.
 - `rawInflate` — streaming raw-DEFLATE inflate (handles flushed dictzip chunks).
+- `stripDiacritics` / `hasDiacritics` — Urdu/Arabic diacritic helpers. `lookup`/
+  `getDefinition` already strip diacritics from the query on a miss, so "عِلْم"
+  finds the headword "علم" out of the box; set engine `normalize: true` to also
+  match diacritic-bearing headwords from a bare query.
 - `ShaekeebIdxParser`, `ShaekeebIfoParser`, `ShaekeebTypedIndexBuilder`, `TypedIndexReader`.
 - `ShaekeebBinarySearch`, `ShaekeebPrefixIndex`, `ShaekeebBloomFilter`, `ShaekeebLRUCache`.
 - `ShaekeebRangeFetcher` — HTTP Range helper.

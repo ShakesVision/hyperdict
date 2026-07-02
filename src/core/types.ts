@@ -83,6 +83,13 @@ export interface DictionaryConfig {
    */
   archive?: string;
 
+  /**
+   * Download the whole content file (`.dict.dz`/`.dict`) up front instead of
+   * range-reading. With engine `persist`, the full dictionary is cached to the
+   * device for offline use. Overrides the engine-level `preload` option.
+   */
+  preload?: boolean;
+
   // --- UI hints (optional) ---
   /** Human-readable tab label. Defaults to `name`. */
   label?: string;

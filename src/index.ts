@@ -15,6 +15,7 @@ export { Dictionary, resolveFiles } from './dict/dictionary';
 export type { DictionaryDeps } from './dict/dictionary';
 export { PlainDictReader } from './dict/content-reader';
 export type { ContentReader } from './dict/content-reader';
+export { stripDiacritics, hasDiacritics } from './dict/normalize';
 
 // Byte sources (HTTP range / in-memory buffer)
 export { HttpByteSource, BufferByteSource } from './io/byte-source';

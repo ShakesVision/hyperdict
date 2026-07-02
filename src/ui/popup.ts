@@ -306,12 +306,27 @@ export class ShakeebDictPopup {
     this.renderTabs(availability);
   }
 
-  /** Public entry: open the popup for a word. */
-  public open(word: string): void {
+  /**
+   * Public entry: open the popup. Pass a word to look it up, or omit/empty to
+   * open a blank popup with the search box focused (e.g. from a "search" button).
+   */
+  public open(word = ''): void {
     this.backStack = [];
     this.overlay.classList.add('open');
     this.root.classList.add('open');
-    this.showWord(word, { resetBack: true });
+
+    const w = word.trim();
+    if (w) {
+      this.showWord(w, { resetBack: true });
+    } else {
+      // Blank: show tabs + a prompt, focus the search box.
+      this.word = '';
+      this.input.value = '';
+      this.hidePopovers();
+      this.refreshTabs();
+      this.updateBackButton();
+      void this.loadActive();
+    }
     this.input.focus();
     this.input.select();
   }

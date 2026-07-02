@@ -24,6 +24,7 @@ import { ShaekeebBlockReader, type RawInflate } from '../dictzip/block-reader';
 import { fetchBuffer } from '../io/cached-fetch';
 import { HttpByteSource, BufferByteSource, type ByteSource } from '../io/byte-source';
 import { PlainDictReader, type ContentReader } from './content-reader';
+import { stripDiacritics } from './normalize';
 
 import type {
   DictionaryConfig,
@@ -45,6 +46,15 @@ export interface DictionaryDeps {
   defCacheSize?: number;
   /** Build a Bloom filter (extra load cost for O(1) negatives). Default false. */
   useBloom?: boolean;
+  /**
+   * Build a diacritic-normalized headword map for bidirectional
+   * diacritic-insensitive lookup (finds diacritic-bearing headwords from a bare
+   * query). Costs a full-corpus decode+strip pass at load, so default false —
+   * query-side diacritic stripping works without it.
+   */
+  normalize?: boolean;
+  /** Download whole content files up front (offline mode). Default false. */
+  preload?: boolean;
 }
 
 /**
@@ -79,6 +89,8 @@ export class Dictionary {
   private readonly prefixIndex: ShaekeebPrefixIndex;
   private readonly bloom: ShaekeebBloomFilter | null;
   private readonly synonyms: Map<string, number> | null;
+  /** stripped-headword → index, for diacritic-bearing headwords (opt-in). */
+  private readonly diacriticMap: Map<string, number> | null;
   private readonly contentReader: ContentReader | null;
   /** Single content type from `sametypesequence` ('' if not declared). */
   private readonly contentType: string;
@@ -95,6 +107,7 @@ export class Dictionary {
     contentReader: ContentReader | null;
     defCacheMax: number;
     useBloom: boolean;
+    normalize: boolean;
   }) {
     this.config = args.config;
     this.name = args.config.name;
@@ -119,6 +132,22 @@ export class Dictionary {
       }
     } else {
       this.bloom = null;
+    }
+
+    // Optional: map stripped forms of diacritic-bearing headwords → index, so a
+    // bare query can find a headword that carries diacritics. Only diacritic
+    // headwords are stored, so the map stays small even for large dictionaries.
+    if (args.normalize) {
+      this.diacriticMap = new Map<string, number>();
+      for (let i = 0; i < args.index.wordOffsets.length; i++) {
+        const raw = this.search.getWord(i);
+        const bare = stripDiacritics(raw);
+        if (bare !== raw && !this.diacriticMap.has(bare)) {
+          this.diacriticMap.set(bare, i);
+        }
+      }
+    } else {
+      this.diacriticMap = null;
     }
   }
 
@@ -160,7 +189,13 @@ export class Dictionary {
     const candidates = config.files
       ? [config.files.dict]
       : [files.dict, files.dict.replace(/\.dz$/i, '')];
-    const contentReader = await Dictionary.buildHttpContentReader(candidates, config.name, deps);
+    const preload = config.preload ?? deps.preload ?? false;
+    const contentReader = await Dictionary.buildHttpContentReader(
+      candidates,
+      config.name,
+      deps,
+      preload
+    );
 
     return new Dictionary({
       config,
@@ -170,6 +205,7 @@ export class Dictionary {
       contentReader,
       defCacheMax,
       useBloom: deps.useBloom ?? false,
+      normalize: deps.normalize ?? false,
     });
   }
 
@@ -256,6 +292,7 @@ export class Dictionary {
       contentReader,
       defCacheMax,
       useBloom: deps.useBloom ?? false,
+      normalize: deps.normalize ?? false,
     });
   }
 
@@ -268,11 +305,24 @@ export class Dictionary {
   private static async buildHttpContentReader(
     candidates: string[],
     name: string,
-    deps: DictionaryDeps
+    deps: DictionaryDeps,
+    preload: boolean
   ): Promise<ContentReader | null> {
     for (const url of candidates) {
       const isDz = /\.dz(\?|$)/i.test(url);
       try {
+        if (preload) {
+          // Offline mode: pull the whole file once (cached if persist), then
+          // read from memory — no range requests, no Range-support requirement.
+          const bytes = new Uint8Array(await fetchBuffer(url, { persist: deps.persist }));
+          const source = new BufferByteSource(bytes);
+          if (isDz) {
+            const header = await Dictionary.loadDictZipHeader(source);
+            return new ShaekeebBlockReader(source, header, deps.inflate, deps.cacheSize);
+          }
+          return new PlainDictReader(source);
+        }
+
         const source = new HttpByteSource(url);
         if (isDz) {
           const header = await Dictionary.loadDictZipHeader(source);
@@ -417,6 +467,23 @@ export class Dictionary {
       const synIdx = this.synonyms.get(word);
       if (synIdx !== undefined && synIdx < this.index.wordOffsets.length) {
         return synIdx;
+      }
+    }
+
+    // Diacritic-insensitive fallback. Query-side stripping (free) matches a bare
+    // headword when the query carried harakat; the opt-in map matches a
+    // diacritic-bearing headword from a bare query.
+    const bare = stripDiacritics(word);
+    if (bare !== word) {
+      const viaBareQuery = this.findIndex(bare);
+      if (viaBareQuery !== -1) {
+        return viaBareQuery;
+      }
+    }
+    if (this.diacriticMap) {
+      const viaMap = this.diacriticMap.get(bare);
+      if (viaMap !== undefined) {
+        return viaMap;
       }
     }
 

@@ -49,6 +49,40 @@ const def = await engine.getDefinition('UrduLughat', 'کتاب');
 const all = await engine.define('کتاب'); // DefinitionResult[]
 ```
 
+## 🧩 Headless — bring your own UI (Ionic / React Native WebView / custom)
+
+The core `hyperdict` package is **DOM-free**. You never need the popup — call the
+engine and render the raw results however you like (your Ionic/Android styling,
+your own components):
+
+```javascript
+import { HyperDict } from 'hyperdict';   // no 'hyperdict/ui' import at all
+
+const engine = new HyperDict({ persist: true, preload: true }); // offline-capable
+engine.registerDictionary({ name: 'UrduLughat', path: '…/UrduLughatOffline/' });
+await engine.init();
+
+const hits = engine.lookup('کتاب').dictionaries;         // [{ name, found }]
+const def  = await engine.getDefinition('UrduLughat', 'کتاب');
+//        → { word, definition, type, dictName }  ← raw; you render it
+const all  = await engine.define('کتاب');                // from every dictionary
+```
+
+### Offline (download once, use forever) — great for Ionic/Android apps
+
+`preload: true` downloads the whole `.dict.dz` (instead of range-reading), and
+`persist: true` stores every file in the device's **Cache Storage**. So the
+first lookup fetches the dictionary, and after that it works with **no network**:
+
+```javascript
+// Whole dictionary cached to the device on first use; offline thereafter.
+const engine = new HyperDict({ persist: true, preload: true });
+// (Or per dictionary: registerDictionary({ name, path, preload: true }))
+```
+
+The `archive` source (`{ name, archive: '…/dict.zip' }`) + `persist` is another
+offline path — one download of a single zip, decompressed in memory.
+
 ## 🪟 Reusable popup UI
 
 ```javascript
@@ -65,7 +99,8 @@ mountHyperDictUI({
 ```
 
 Plain `<script>` (Blogger/static sites): load `dist/hyperdict.min.js` (global
-`HyperDict`) and `dist/hyperdict-ui.min.js` (global `HyperDictUI`). See `demo/`.
+`HyperDict`) and `dist/hyperdict-ui.min.js` (global `HyperDictUI`). See `docs/`
+(which is also the GitHub Pages site).
 
 The popup includes, out of the box: **per-dictionary direction & font** (Urdu →
 RTL + Nastaliq), **`bword://` cross-reference links** (click a linked word to
@@ -162,7 +197,7 @@ framework-agnostic and worker-ready; the UI is a separate bundle.
 ```bash
 npm test                                              # unit + dictzip regression
 HYPERDICT_LIVE=1 npx vitest run tests/integration.live.test.ts  # real dictionary
-npm run build && npx http-server demo                 # open the demo
+npm run build && npx http-server docs                 # open the demo (docs/index.html)
 ```
 
 ## 👤 Author

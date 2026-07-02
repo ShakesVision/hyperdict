@@ -39,6 +39,20 @@ export interface HyperDictOptions {
    * load — a meaningful win for large dictionaries on low-end devices.
    */
   bloom?: boolean;
+  /**
+   * Build a diacritic-normalized headword map for bidirectional
+   * diacritic-insensitive lookup (extra load cost). Query-side diacritic
+   * stripping works without this. Default false. Per-dictionary override via
+   * `DictionaryConfig` is not needed — this applies engine-wide.
+   */
+  normalize?: boolean;
+  /**
+   * Download whole content files (`.dict.dz`/`.dict`) up front instead of
+   * range-reading. With `persist`, this caches the entire dictionary to the
+   * device — "download once, offline forever" (ideal for Ionic/Android). Can
+   * also be set per-dictionary via `DictionaryConfig.preload`. Default false.
+   */
+  preload?: boolean;
 }
 
 /** A known dictionary and its current state (see `listDictionaries`). */
@@ -73,6 +87,8 @@ export class HyperDict {
       cacheSize: this.options.cacheSize,
       persist: this.options.persist,
       useBloom: this.options.bloom,
+      normalize: this.options.normalize,
+      preload: this.options.preload,
     };
   }
 

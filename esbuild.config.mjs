@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, 'dist');
-const demoDir = path.join(__dirname, 'demo');
+const docsDir = path.join(__dirname, 'docs'); // GitHub Pages serves from /docs
 fs.mkdirSync(distDir, { recursive: true });
 
 const common = {
@@ -31,18 +31,18 @@ const builds = [
 console.log('📦 Building HyperDict bundles…');
 await Promise.all(builds.map((b) => esbuild.build(b)));
 
-// Copy the browser bundles into demo/ so the demo runs without a build step.
-const copyToDemo = [
+// Copy the browser bundles into docs/ so the GitHub Pages demo runs as-is.
+const copyToDocs = [
   'hyperdict.min.js',
   'hyperdict.min.js.map',
   'hyperdict-ui.min.js',
   'hyperdict-ui.min.js.map',
 ];
-for (const file of copyToDemo) {
-  fs.copyFileSync(path.join(distDir, file), path.join(demoDir, file));
+for (const file of copyToDocs) {
+  fs.copyFileSync(path.join(distDir, file), path.join(docsDir, file));
 }
 
-console.log('✅ Built core + UI bundles and copied browser globals into demo/.');
+console.log('✅ Built core + UI bundles and copied browser globals into docs/.');
 console.log('   dist/hyperdict.min.js (global HyperDict, fflate bundled)');
 console.log('   dist/hyperdict-ui.min.js (global HyperDictUI)');
 console.log('   + matching .esm.js for npm/bundler consumers');

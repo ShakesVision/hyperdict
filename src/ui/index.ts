@@ -53,7 +53,8 @@ export interface MountOptions {
 
 export interface MountedUI {
   popup: ShakeebDictPopup;
-  open: (word: string) => void;
+  /** Open the popup — with a word to look up, or blank (focused search box). */
+  open: (word?: string) => void;
   /** Rebuild tabs from the engine (call after programmatic add/remove). */
   refresh: () => void;
   destroy: () => void;
@@ -223,7 +224,7 @@ export function mountHyperDictUI(options: MountOptions): MountedUI {
 
   return {
     popup,
-    open: (word) => popup.open(word),
+    open: (word = '') => popup.open(word),
     refresh,
     destroy: () => {
       detachTriggers();
