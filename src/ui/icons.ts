@@ -20,6 +20,7 @@ const PATHS: Record<string, string> = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
   reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  swap: '<path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="M17 20l4-4-4-4"/><path d="M21 16H8"/>',
 };
 
 export type IconName = keyof typeof PATHS;

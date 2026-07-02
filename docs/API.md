@@ -74,7 +74,20 @@ engine.lookup('کتاب');
 
 #### `getDefinition(dictName: string, word: string): Promise<DefinitionResult | null>`
 Fetch + decode a definition from one dictionary. `null` if the word is absent.
-Results are cached per dictionary (repeat calls are network-free).
+If the `.idx` holds **several byte-identical headword entries** (distinct senses),
+all of them are merged into the returned definition. Results are cached per
+dictionary (repeat calls are network-free).
+
+#### `suggest(prefix: string, limit = 10): string[]`
+Autocomplete: headwords starting with `prefix`, merged across enabled
+dictionaries (deduped, sorted). Synchronous, index-only — fast.
+
+#### `reverseLookup(dictName, query, opts?): Promise<string[]>`
+Find headwords whose **definition** contains `query` (case-insensitive) — e.g.
+Urdu words whose English gloss contains a word. `opts`: `{ limit = 50,
+onProgress(done, total) }`. Scans the whole dictionary, so it's cheap with
+`preload`/offline and heavier over the network (reads chunks in offset order,
+each decompressed once).
 
 #### `define(word: string): Promise<DefinitionResult[]>`
 Fetch `word` from every dictionary that has it, in parallel (absent ones omitted).
@@ -216,6 +229,8 @@ Wires the popup + triggers over an engine in one call.
 | `historyKey` | `string \| null` | `'hyperdict:recent'` | localStorage key; `null` = in-memory. |
 | `attribution` | `boolean \| { text, url? }` | `true` | Credit shown in the ⓘ panel. |
 | `manage` | `boolean` | `true` | Show the ＋ Manage-dictionaries panel. |
+| `suggest` | `boolean` | `true` | Autocomplete dropdown as you type. |
+| `reverseLookup` | `boolean` | `true` | Show the reverse-lookup toggle (search within meanings). |
 | `persistConfigKey` | `string \| null` | `'hyperdict:dicts'` | localStorage key for user-added dicts; `null` = off. |
 | `root` | `HTMLElement` | `document.body` | Element watched for gestures. |
 | `selection` | `boolean` | `true` | Desktop text-selection → 🔍 chip. |

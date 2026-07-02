@@ -36,6 +36,14 @@ export interface DictInfo {
 export interface PopupCallbacks {
   lookup: (word: string) => Array<{ name: string; found: boolean }>;
   getDefinition: (dictName: string, word: string) => Promise<DefinitionResult | null>;
+  /** Optional autocomplete — headwords starting with the typed prefix. */
+  suggest?: (prefix: string) => string[];
+  /** Optional reverse lookup — headwords in a dictionary whose meaning contains `query`. */
+  reverseLookup?: (
+    dictName: string,
+    query: string,
+    onProgress?: (done: number, total: number) => void
+  ) => Promise<string[]>;
 }
 
 export interface PopupOptions extends PopupCallbacks {
@@ -84,7 +92,16 @@ const CSS = `
 .${PREFIX}-tool:hover:not(:disabled){background:#000;color:#fff}
 .${PREFIX}-tool:disabled{opacity:.35;cursor:default}
 .${PREFIX}-tool.ml{margin-left:auto}
-.${PREFIX}-search{padding:10px;flex:none}
+.${PREFIX}-search{padding:10px;flex:none;position:relative}
+.${PREFIX}-tool.on{background:#000;color:#fff}
+.${PREFIX}-sugg{position:absolute;left:10px;right:10px;top:calc(100% - 4px);background:#fff;border:1px solid #000;
+  border-top:none;border-radius:0 0 5px 5px;max-height:220px;overflow:auto;z-index:7;box-shadow:0 8px 20px rgba(0,0,0,.2)}
+.${PREFIX}-sugg.hidden{display:none}
+.${PREFIX}-sugg-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee}
+.${PREFIX}-sugg-item:hover,.${PREFIX}-sugg-item.sel{background:#f0f0f0}
+.${PREFIX}-revlist button{display:block;width:100%;text-align:inherit;padding:9px 12px;background:#fff;border:none;
+  border-bottom:1px solid #eee;cursor:pointer;font-size:15px}
+.${PREFIX}-revlist button:hover{background:#f0f0f0}
 .${PREFIX}-input{width:100%;padding:10px 12px;border:1px solid #000;border-radius:4px;font-size:15px;
   background:#fff;color:#000;font-family:inherit}
 .${PREFIX}-input:focus{outline:none;box-shadow:0 0 0 2px rgba(0,0,0,.12)}
@@ -152,6 +169,10 @@ export class ShakeebDictPopup {
   private body!: HTMLDivElement;
   private backBtn!: HTMLButtonElement;
   private copyBtn!: HTMLButtonElement;
+  private reverseBtn: HTMLButtonElement | null = null;
+  private suggBox!: HTMLDivElement;
+  private suggTimer: ReturnType<typeof setTimeout> | null = null;
+  private reverseMode = false;
   private recentPop!: HTMLDivElement;
   private infoPop!: HTMLDivElement;
   private copyPop!: HTMLDivElement;
@@ -235,6 +256,13 @@ export class ShakeebDictPopup {
     this.copyBtn = this.iconButton(`${PREFIX}-tool`, 'copy', 'Copy', () => this.toggleCopy());
     toolbar.append(this.backBtn, this.copyBtn);
 
+    if (this.opts.reverseLookup) {
+      this.reverseBtn = this.iconButton(`${PREFIX}-tool`, 'swap', 'Reverse lookup (search meanings)', () =>
+        this.toggleReverse()
+      );
+      toolbar.appendChild(this.reverseBtn);
+    }
+
     if (this.opts.history) {
       toolbar.appendChild(
         this.iconButton(`${PREFIX}-tool`, 'clock', 'Recent searches', () => this.toggleRecent())
@@ -266,10 +294,20 @@ export class ShakeebDictPopup {
     this.input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const w = this.input.value.trim();
+        this.hideSuggestions();
         if (w) this.showWord(w);
+      } else if (e.key === 'Escape' && !this.suggBox.classList.contains('hidden')) {
+        e.stopPropagation();
+        this.hideSuggestions();
       }
     });
+    this.input.addEventListener('input', () => this.scheduleSuggest());
+    this.input.addEventListener('blur', () => setTimeout(() => this.hideSuggestions(), 150));
     searchWrap.appendChild(this.input);
+
+    this.suggBox = document.createElement('div');
+    this.suggBox.className = `${PREFIX}-sugg hidden`;
+    searchWrap.appendChild(this.suggBox);
 
     this.body = document.createElement('div');
     this.body.className = `${PREFIX}-body`;
@@ -396,6 +434,7 @@ export class ShakeebDictPopup {
     this.input.value = w;
     this.opts.history?.add(w);
     this.hidePopovers();
+    this.hideSuggestions();
     this.refreshTabs();
     this.updateBackButton();
     void this.loadActive();
@@ -415,6 +454,7 @@ export class ShakeebDictPopup {
     this.overlay.classList.remove('open');
     this.root.classList.remove('open');
     this.hidePopovers();
+    this.hideSuggestions();
   }
 
   public isOpen(): boolean {
@@ -445,7 +485,14 @@ export class ShakeebDictPopup {
     const word = this.word;
     this.currentResult = null;
     if (!dict || !word) {
-      this.body.innerHTML = `<div class="${PREFIX}-msg">Type a word to search.</div>`;
+      this.body.innerHTML = `<div class="${PREFIX}-msg">${
+        this.reverseMode ? 'Type a word to find in meanings.' : 'Type a word to search.'
+      }</div>`;
+      return;
+    }
+
+    if (this.reverseMode) {
+      void this.runReverse();
       return;
     }
 
@@ -612,6 +659,119 @@ export class ShakeebDictPopup {
     this.toast.classList.add('show');
     if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => this.toast.classList.remove('show'), 1400);
+  }
+
+  // --- reverse lookup (search within meanings) ---
+  private toggleReverse(): void {
+    this.reverseMode = !this.reverseMode;
+    this.reverseBtn?.classList.toggle('on', this.reverseMode);
+    this.reverseBtn?.setAttribute(
+      'title',
+      this.reverseMode ? 'Reverse lookup ON (searching meanings)' : 'Reverse lookup (search meanings)'
+    );
+    this.input.placeholder = this.reverseMode
+      ? 'Find a word inside meanings…'
+      : (this.opts.placeholder ?? 'Search…');
+    this.hideSuggestions();
+    if (this.word) void this.loadActive();
+  }
+
+  private async runReverse(): Promise<void> {
+    if (!this.opts.reverseLookup) return;
+    const dict = this.activeTab;
+    const query = this.word;
+    const token = ++this.requestSeq;
+    this.body.dir = this.defaultDir;
+    this.body.style.fontFamily = '';
+    this.body.innerHTML = `<div class="${PREFIX}-msg"><span class="${PREFIX}-spin"></span> Scanning meanings…</div>`;
+
+    try {
+      const words = await this.opts.reverseLookup(dict, query, (done, total) => {
+        if (token !== this.requestSeq) return;
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        const el = this.body.querySelector(`.${PREFIX}-msg`);
+        if (el) el.innerHTML = `<span class="${PREFIX}-spin"></span> Scanning meanings… ${pct}%`;
+      });
+      if (token !== this.requestSeq) return;
+
+      if (words.length === 0) {
+        this.body.innerHTML = `<div class="${PREFIX}-msg">No entries whose meaning contains “${escapeHtml(query)}”.</div>`;
+        return;
+      }
+      this.body.innerHTML = `<div class="${PREFIX}-word">${words.length} match${
+        words.length === 1 ? '' : 'es'
+      } for “${escapeHtml(query)}” in meanings</div>`;
+      const list = document.createElement('div');
+      list.className = `${PREFIX}-revlist`;
+      const cfg = this.activeTabConfig();
+      for (const w of words) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = w;
+        b.dir = cfg?.dir ?? this.defaultDir;
+        if (cfg?.font) b.style.fontFamily = `'${cfg.font}', serif`;
+        b.addEventListener('click', () => {
+          this.reverseMode = false;
+          this.reverseBtn?.classList.remove('on');
+          this.input.placeholder = this.opts.placeholder ?? 'Search…';
+          this.showWord(w);
+        });
+        list.appendChild(b);
+      }
+      this.body.appendChild(list);
+    } catch (err) {
+      if (token !== this.requestSeq) return;
+      const msg = err instanceof Error ? err.message : String(err);
+      this.body.innerHTML = `<div class="${PREFIX}-msg">Error: ${escapeHtml(msg)}</div>`;
+    }
+  }
+
+  // --- autocomplete suggestions ---
+  private scheduleSuggest(): void {
+    if (!this.opts.suggest || this.reverseMode) {
+      this.hideSuggestions();
+      return;
+    }
+    if (this.suggTimer) clearTimeout(this.suggTimer);
+    this.suggTimer = setTimeout(() => this.renderSuggestions(), 110);
+  }
+
+  private renderSuggestions(): void {
+    if (!this.opts.suggest) return;
+    const prefix = this.input.value.trim();
+    if (!prefix) {
+      this.hideSuggestions();
+      return;
+    }
+    const words = this.opts.suggest(prefix).filter((w) => w !== prefix);
+    if (words.length === 0) {
+      this.hideSuggestions();
+      return;
+    }
+    this.suggBox.textContent = '';
+    const cfg = this.activeTabConfig();
+    for (const w of words) {
+      const item = document.createElement('div');
+      item.className = `${PREFIX}-sugg-item`;
+      item.textContent = w;
+      item.dir = cfg?.dir ?? this.defaultDir;
+      // mousedown (not click) so it fires before the input's blur hides the box.
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        this.hideSuggestions();
+        this.showWord(w);
+      });
+      this.suggBox.appendChild(item);
+    }
+    this.suggBox.classList.remove('hidden');
+  }
+
+  private hideSuggestions(): void {
+    if (this.suggTimer) {
+      clearTimeout(this.suggTimer);
+      this.suggTimer = null;
+    }
+    this.suggBox.classList.add('hidden');
   }
 
   private attributionHtml(): string {

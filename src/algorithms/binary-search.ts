@@ -151,6 +151,31 @@ export class ShaekeebBinarySearch {
   }
 
   /**
+   * Collect up to `limit` distinct headwords starting with `prefix` (for
+   * autocomplete). Binary-search to the first match, then walk forward while
+   * the prefix holds — O(log n + limit), no full scan.
+   */
+  public prefixWords(prefix: string, limit: number): string[] {
+    if (!prefix || limit <= 0) return [];
+    const prefixBytes = this.encoder.encode(prefix);
+    const first = this.findFirstWithPrefix(prefixBytes);
+    if (first === -1) return [];
+
+    const out: string[] = [];
+    let last = '';
+    const n = this.index.wordOffsets.length;
+    for (let i = first; i < n && out.length < limit; i++) {
+      if (!this.wordStartsWithPrefix(i, prefixBytes)) break;
+      const w = this.getWord(i);
+      if (w !== last) {
+        out.push(w); // collapse adjacent duplicate headwords
+        last = w;
+      }
+    }
+    return out;
+  }
+
+  /**
    * Binary search to find first word starting with prefix
    */
   private findFirstWithPrefix(prefixBytes: Uint8Array): number {

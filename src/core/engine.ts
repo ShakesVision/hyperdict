@@ -276,6 +276,36 @@ export class HyperDict {
     return dict.getDefinition(word);
   }
 
+  /**
+   * Autocomplete: up to `limit` headwords starting with `prefix`, merged across
+   * enabled dictionaries (deduped, sorted). Synchronous and index-only — fast.
+   */
+  public suggest(prefix: string, limit = 10): string[] {
+    this.assertReady();
+    if (!prefix.trim()) return [];
+    const set = new Set<string>();
+    for (const dict of this.dictionaries.values()) {
+      for (const w of dict.suggest(prefix, limit)) set.add(w);
+    }
+    return Array.from(set).sort().slice(0, limit);
+  }
+
+  /**
+   * Reverse lookup: headwords in `dictName` whose DEFINITION contains `query`
+   * (e.g. find Urdu words whose English gloss contains a word). Scans the whole
+   * dictionary — best with `preload`/offline. See Dictionary.reverseLookup.
+   */
+  public async reverseLookup(
+    dictName: string,
+    query: string,
+    opts?: { limit?: number; onProgress?: (done: number, total: number) => void }
+  ): Promise<string[]> {
+    this.assertReady();
+    const dict = this.dictionaries.get(dictName);
+    if (!dict) throw new Error(`Dictionary '${dictName}' not found`);
+    return dict.reverseLookup(query, opts);
+  }
+
   /** Fetch `word` from every loaded dictionary that has it, in parallel. */
   public async define(word: string): Promise<DefinitionResult[]> {
     this.assertReady();

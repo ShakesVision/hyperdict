@@ -85,10 +85,13 @@
     <script src="./hyperdict.min.js"></script>
     <script src="./hyperdict-ui.min.js"></script>
     <script>
-      // jsDelivr CDN (fast, global, supports HTTP Range + CORS) serving the
-      // GitHub-hosted dictionary files. Falls back gracefully if a file is missing.
+      // IMPORTANT: the host MUST serve byte-exact HTTP Range responses without
+      // transforming the bytes. raw.githubusercontent does; jsDelivr does NOT
+      // (it applies edge compression that breaks random-access chunk reads), so
+      // we use raw github here. For production, a plain object store (Cloudflare
+      // R2 / S3 / Backblaze) with Range + no transform also works well.
       const REPO =
-        'https://cdn.jsdelivr.net/gh/ShakesVision/urdu-archive@master/raw/DICTIONARIES/Urdu-Urdu/';
+        'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/';
       // Urdu dictionaries: RTL + a Nastaliq webfont (auto-injected from the fontUrl).
       const NASTALIQ = 'https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap';
       const DICTS = [

@@ -102,15 +102,17 @@ Plain `<script>` (Blogger/static sites): load `dist/hyperdict.min.js` (global
 `HyperDict`) and `dist/hyperdict-ui.min.js` (global `HyperDictUI`). See `docs/`
 (which is also the GitHub Pages site).
 
-The popup includes, out of the box: **per-dictionary direction & font** (Urdu →
-RTL + Nastaliq), **`bword://` cross-reference links**, **recent-search history**
-with a back button, an **ⓘ info panel**, **copy** (this dictionary or all of
-them, as **plain text / Markdown / HTML**), a **resizable** window (drag the
-top-left grip, up to near-full-screen) with a single-row scrollable tab bar,
-crisp **inline SVG icons**, and a **＋ Manage panel** to add/remove, **enable/
-disable**, **reorder** (drag order via ↑/↓), and **reset** dictionaries — adding
-one via individual file URLs *or* a single archive (**.zip / .tar / .tar.gz**).
-Useful options:
+The popup includes, out of the box: **autocomplete** (type-ahead suggestions
+from the index), **all senses** of a word (duplicate headword entries are
+merged, not just the first), a **reverse lookup** toggle (find words whose
+*meaning* contains your query), **per-dictionary direction & font** (Urdu → RTL +
+Nastaliq), **`bword://` cross-reference links**, **recent-search history** with a
+back button, an **ⓘ info panel**, **copy** (this dictionary or all, as **plain
+text / Markdown / HTML**), a **resizable** window (drag the top-left grip, up to
+near-full-screen) with a single-row scrollable tab bar, crisp **inline SVG
+icons**, and a **＋ Manage panel** to add/remove, **enable/disable**, **reorder**
+(↑/↓), and **reset** dictionaries — adding one via individual file URLs *or* a
+single archive (**.zip / .tar / .tar.gz**). Useful options:
 
 ```javascript
 mountHyperDictUI({
@@ -177,7 +179,13 @@ engine.listDictionaries();                  // {name, origin, enabled, loaded, �
 - **In-session:** decompressed dictzip chunks (LRU) + resolved definitions are cached per dictionary — repeat lookups are network-free.
 - **Across reloads:** pass `new HyperDict({ persist: true })` to cache the `.ifo`/`.idx`/`.syn` files in the browser **Cache Storage**, so revisiting a dictionary skips the download. (Requires https or localhost.)
 
-> **Note:** `.dict.dz` hosting must support **HTTP Range + CORS** (GitHub raw and jsDelivr do). There is no server "meaning" endpoint — HyperDict computes definitions in the browser; jsDelivr/GitHub just host the static files.
+> **Hosting note:** the `.dict.dz`/`.dict` host must serve **byte-exact HTTP
+> Range responses without transforming the bytes**, plus **CORS**.
+> `raw.githubusercontent.com` works; a plain object store (Cloudflare R2 / S3 /
+> Backblaze) works. **Avoid CDNs that re-compress at the edge (e.g. jsDelivr)** —
+> they break random-access chunk reads. There is no server "meaning" endpoint;
+> HyperDict computes definitions in the browser. (For fully offline use, download
+> once with `preload` + `persist`, or bundle an `archive`.)
 
 ## 🏗️ Architecture
 

@@ -42,6 +42,10 @@ export interface MountOptions {
   attribution?: boolean | { text: string; url?: string };
   /** Show the Manage-dictionaries panel (＋ button). Default true. */
   manage?: boolean;
+  /** Enable the autocomplete dropdown. Default true. Set `false` to disable. */
+  suggest?: boolean;
+  /** Enable the reverse-lookup toggle (search within meanings). Default true. */
+  reverseLookup?: boolean;
   /** localStorage key for custom dictionaries. Default 'hyperdict:dicts'. null = off. */
   persistConfigKey?: string | null;
   /** localStorage key for the disabled-set. Default 'hyperdict:disabled'. null = off. */
@@ -188,6 +192,12 @@ export function mountHyperDictUI(options: MountOptions): MountedUI {
     attribution: options.attribution,
     lookup: (word) => engine.lookup(word).dictionaries,
     getDefinition: (dictName, word) => engine.getDefinition(dictName, word),
+    suggest: options.suggest === false ? undefined : (prefix) => engine.suggest(prefix),
+    reverseLookup:
+      options.reverseLookup === false
+        ? undefined
+        : (dictName, query, onProgress) =>
+            engine.reverseLookup(dictName, query, { onProgress }),
     onManage: manageEnabled ? () => managePanel?.open() : undefined,
   });
 

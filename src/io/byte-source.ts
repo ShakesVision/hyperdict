@@ -27,6 +27,17 @@ export class HttpByteSource implements ByteSource {
     if (!res.ok && res.status !== 206) {
       throw new Error(`Range fetch failed (${res.status}) for ${this.url} [${start}-${end - 1}]`);
     }
+    // A 200 means the host IGNORED the Range and returned the whole file. Feeding
+    // that to a chunk decompressor yields garbage ("invalid block type"), so fail
+    // clearly: the file must be served with byte-exact Range support and without
+    // any transforming Content-Encoding (raw.githubusercontent does; some CDNs
+    // that re-compress at the edge, e.g. jsDelivr, do not).
+    if (res.status === 200) {
+      throw new Error(
+        `${this.url} did not honor HTTP Range (returned 200, not 206). The dictionary ` +
+          `host must support byte-range requests without re-encoding.`
+      );
+    }
     return new Uint8Array(await res.arrayBuffer());
   }
 }

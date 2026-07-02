@@ -513,9 +513,88 @@ export class Dictionary {
     return this.resolve(word) !== -1;
   }
 
+  /** True if the headwords at indices a and b are byte-identical. */
+  private wordBytesEqual(a: number, b: number): boolean {
+    const x = this.reader.getWordBytes(a);
+    const y = this.reader.getWordBytes(b);
+    if (x.length !== y.length) return false;
+    for (let i = 0; i < x.length; i++) {
+      if (x[i] !== y[i]) return false;
+    }
+    return true;
+  }
+
+  /**
+   * The contiguous run of entries byte-identical to entry `i`. Since the .idx is
+   * word-sorted, duplicate headwords are adjacent, so a linear scan out from `i`
+   * finds them all.
+   */
+  private equalRun(i: number): { lo: number; hi: number } {
+    const n = this.index.wordOffsets.length;
+    let lo = i;
+    let hi = i;
+    while (lo > 0 && this.wordBytesEqual(lo - 1, i)) lo--;
+    while (hi < n - 1 && this.wordBytesEqual(hi + 1, i)) hi++;
+    return { lo, hi };
+  }
+
   /** The canonical headword for an index entry (useful when resolving synonyms). */
   public headwordAt(index: number): string {
     return this.search.getWord(index);
+  }
+
+  /** Up to `limit` headwords beginning with `prefix` (autocomplete). */
+  public suggest(prefix: string, limit: number): string[] {
+    return this.search.prefixWords(prefix, limit);
+  }
+
+  /** Indices sorted by .dict offset (built once) so a full scan reads chunks in order. */
+  private offsetOrder: Uint32Array | null = null;
+  private getOffsetOrder(): Uint32Array {
+    if (!this.offsetOrder) {
+      const n = this.index.wordOffsets.length;
+      const order = Array.from({ length: n }, (_, i) => i);
+      order.sort((a, b) => this.index.offsetArray[a] - this.index.offsetArray[b]);
+      this.offsetOrder = Uint32Array.from(order);
+    }
+    return this.offsetOrder;
+  }
+
+  /**
+   * Reverse lookup: headwords whose DEFINITION contains `query` (case-insensitive
+   * substring). This reads and scans every definition, so it downloads +
+   * decompresses the whole dictionary — cheap with `preload`/offline, heavier
+   * over the network. Reads in offset order so each chunk is decompressed once.
+   * `onProgress(done, total)` fires periodically; stops at `limit` matches.
+   */
+  public async reverseLookup(
+    query: string,
+    opts: { limit?: number; onProgress?: (done: number, total: number) => void } = {}
+  ): Promise<string[]> {
+    if (!this.contentReader || !query.trim()) return [];
+    const q = query.trim().toLowerCase();
+    const limit = opts.limit ?? 50;
+    const order = this.getOffsetOrder();
+    const seen = new Set<string>();
+
+    for (let p = 0; p < order.length; p++) {
+      const idx = order[p];
+      const len = this.index.lengthArray[idx];
+      if (len === 0) continue;
+      let raw: Uint8Array;
+      try {
+        raw = await this.contentReader.readBytes(this.index.offsetArray[idx], len);
+      } catch {
+        continue; // skip an unreadable entry rather than aborting the whole scan
+      }
+      if (this.decoder.decode(raw).toLowerCase().includes(q)) {
+        seen.add(this.search.getWord(idx)); // unique headwords
+        if (seen.size >= limit) break;
+      }
+      if (opts.onProgress && (p & 2047) === 0) opts.onProgress(p, order.length);
+    }
+    opts.onProgress?.(order.length, order.length);
+    return Array.from(seen);
   }
 
   /**
@@ -542,10 +621,24 @@ export class Dictionary {
       throw new Error(`Dictionary "${this.name}" has no readable .dict/.dict.dz`);
     }
 
-    const offset = this.index.offsetArray[idx];
-    const length = this.index.lengthArray[idx];
-    const raw = await this.contentReader.readBytes(offset, length);
-    const { type, text } = this.decodePayload(raw);
+    // A StarDict .idx may hold several byte-identical headwords (distinct senses,
+    // e.g. UrduLughat "علم" = knowledge AND flag). Read every entry in the
+    // contiguous equal-word run and combine them, rather than showing only the
+    // one the binary search happened to land on.
+    const { lo, hi } = this.equalRun(idx);
+    const parts: Array<{ type: string; text: string }> = [];
+    for (let k = lo; k <= hi; k++) {
+      const raw = await this.contentReader.readBytes(
+        this.index.offsetArray[k],
+        this.index.lengthArray[k]
+      );
+      parts.push(this.decodePayload(raw));
+    }
+
+    const anyMarkup = parts.some((p) => Dictionary.isMarkupType(p.type));
+    const type = anyMarkup ? 'h' : parts[0]?.type || 'm';
+    const sep = anyMarkup ? '<hr>' : '\n\n';
+    const text = parts.map((p) => p.text).join(sep);
 
     const result: DefinitionResult = {
       word: headword,
