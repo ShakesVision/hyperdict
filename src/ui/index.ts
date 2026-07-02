@@ -23,6 +23,7 @@ import type { DefinitionTransform } from './format';
 const RTL_LANGS = new Set(['ur', 'ar', 'fa', 'he', 'ps', 'sd', 'ug', 'ckb']);
 const DEFAULT_CONFIG_KEY = 'hyperdict:dicts';
 const DEFAULT_DISABLED_KEY = 'hyperdict:disabled';
+const DEFAULT_ORDER_KEY = 'hyperdict:order';
 
 export interface MountOptions {
   engine: HyperDict;
@@ -45,6 +46,8 @@ export interface MountOptions {
   persistConfigKey?: string | null;
   /** localStorage key for the disabled-set. Default 'hyperdict:disabled'. null = off. */
   disabledKey?: string | null;
+  /** localStorage key for dictionary order. Default 'hyperdict:order'. null = off. */
+  orderKey?: string | null;
   root?: HTMLElement;
   selection?: boolean;
   longPress?: boolean;
@@ -79,41 +82,40 @@ function dirFor(config: DictionaryConfig, fallback: 'rtl' | 'ltr'): 'rtl' | 'ltr
  */
 export function restoreDictionaryState(
   engine: HyperDict,
-  opts: { persistConfigKey?: string | null; disabledKey?: string | null } = {}
+  opts: { persistConfigKey?: string | null; disabledKey?: string | null; orderKey?: string | null } = {}
 ): void {
   if (typeof localStorage === 'undefined') return;
   const cfgKey = opts.persistConfigKey === undefined ? DEFAULT_CONFIG_KEY : opts.persistConfigKey;
   const disKey = opts.disabledKey === undefined ? DEFAULT_DISABLED_KEY : opts.disabledKey;
+  const ordKey = opts.orderKey === undefined ? DEFAULT_ORDER_KEY : opts.orderKey;
 
-  if (cfgKey) {
+  const readArray = (key: string | null): unknown[] | null => {
+    if (!key) return null;
     try {
-      const raw = localStorage.getItem(cfgKey);
+      const raw = localStorage.getItem(key);
       const arr: unknown = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(arr)) {
-        for (const c of arr as DictionaryConfig[]) {
-          if (c && c.name && !engine.hasConfig(c.name)) {
-            engine.registerDictionary(c, 'custom');
-          }
-        }
-      }
+      return Array.isArray(arr) ? arr : null;
     } catch {
-      /* ignore corrupt storage */
+      return null;
+    }
+  };
+
+  const customs = readArray(cfgKey);
+  if (customs) {
+    for (const c of customs as DictionaryConfig[]) {
+      if (c && c.name && !engine.hasConfig(c.name)) engine.registerDictionary(c, 'custom');
     }
   }
 
-  if (disKey) {
-    try {
-      const raw = localStorage.getItem(disKey);
-      const arr: unknown = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(arr)) {
-        for (const name of arr as string[]) {
-          if (typeof name === 'string' && engine.hasConfig(name)) {
-            void engine.setEnabled(name, false);
-          }
-        }
-      }
-    } catch {
-      /* ignore corrupt storage */
+  const order = readArray(ordKey);
+  if (order) {
+    engine.reorderDictionaries(order.filter((n): n is string => typeof n === 'string'));
+  }
+
+  const disabled = readArray(disKey);
+  if (disabled) {
+    for (const name of disabled) {
+      if (typeof name === 'string' && engine.hasConfig(name)) void engine.setEnabled(name, false);
     }
   }
 }
@@ -124,6 +126,7 @@ export function mountHyperDictUI(options: MountOptions): MountedUI {
   const cfgKey =
     options.persistConfigKey === undefined ? DEFAULT_CONFIG_KEY : options.persistConfigKey;
   const disKey = options.disabledKey === undefined ? DEFAULT_DISABLED_KEY : options.disabledKey;
+  const ordKey = options.orderKey === undefined ? DEFAULT_ORDER_KEY : options.orderKey;
 
   const history = new SearchHistory({
     limit: options.historyLimit ?? 50,
@@ -163,6 +166,9 @@ export function mountHyperDictUI(options: MountOptions): MountedUI {
         const disabled = engine.listDictionaries().filter((d) => !d.enabled).map((d) => d.name);
         localStorage.setItem(disKey, JSON.stringify(disabled));
       }
+      if (ordKey) {
+        localStorage.setItem(ordKey, JSON.stringify(engine.listDictionaries().map((d) => d.name)));
+      }
     } catch {
       /* ignore quota/availability errors */
     }
@@ -195,6 +201,10 @@ export function mountHyperDictUI(options: MountOptions): MountedUI {
           .map((d) => ({ name: d.name, label: d.label, origin: d.origin, enabled: d.enabled })),
       setEnabled: async (name, enabled) => {
         await engine.setEnabled(name, enabled);
+        persist();
+      },
+      reorder: (orderedNames) => {
+        engine.reorderDictionaries(orderedNames);
         persist();
       },
       remove: async (name) => {
@@ -244,3 +254,7 @@ export { ManageDictionariesPanel } from './manage';
 export type { ManageOptions, ManageRow } from './manage';
 export { prettifyPlainText, resolveLinkWord, escapeHtml } from './format';
 export type { DefinitionTransform } from './format';
+export { formatOne, formatMany, htmlToPlain, definitionToPlain, copyText } from './output-format';
+export type { OutputFormat } from './output-format';
+export { icon } from './icons';
+export type { IconName } from './icons';

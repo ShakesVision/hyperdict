@@ -17,8 +17,9 @@ import { TypedIndexReader } from '../index/typed-index';
 import { ShaekeebBinarySearch } from '../algorithms/binary-search';
 import { ShaekeebPrefixIndex } from '../algorithms/prefix-index';
 import { ShaekeebBloomFilter } from '../algorithms/bloom-filter';
-import { unzipSync } from 'fflate';
+import { unzipSync, gunzipSync } from 'fflate';
 
+import { untar, isTar } from '../io/untar';
 import { ShaekeebDictZipHeaderParser } from '../dictzip/header-parser';
 import { ShaekeebBlockReader, type RawInflate } from '../dictzip/block-reader';
 import { fetchBuffer } from '../io/cached-fetch';
@@ -222,7 +223,31 @@ export class Dictionary {
     }
   }
 
-  /** Load everything from a single in-memory .zip archive. */
+  /**
+   * Extract an archive to `{filename: bytes}`, detecting the format by magic:
+   * `PK` → zip, gzip (0x1f 0x8b) → tar.gz, USTAR → tar. 7z/rar aren't supported
+   * (would bloat the bundle with heavy codecs).
+   */
+  private static extractArchive(bytes: Uint8Array, name: string): Record<string, Uint8Array> {
+    try {
+      if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
+        return unzipSync(bytes); // 'PK' → zip
+      }
+      if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+        return untar(gunzipSync(bytes)); // gzip → assume .tar.gz
+      }
+      if (isTar(bytes)) {
+        return untar(bytes);
+      }
+      return unzipSync(bytes); // last resort
+    } catch (e) {
+      throw new Error(
+        `Failed to extract archive for "${name}" (supported: .zip, .tar, .tar.gz): ${String(e)}`
+      );
+    }
+  }
+
+  /** Load everything from a single in-memory archive (.zip / .tar / .tar.gz). */
   private static async loadFromArchive(
     config: DictionaryConfig,
     deps: DictionaryDeps,
@@ -233,13 +258,7 @@ export class Dictionary {
     const archiveBytes = new Uint8Array(
       await fetchBuffer(config.archive as string, { persist: deps.persist })
     );
-
-    let entries: Record<string, Uint8Array>;
-    try {
-      entries = unzipSync(archiveBytes);
-    } catch (e) {
-      throw new Error(`Failed to unzip archive for "${config.name}": ${String(e)}`);
-    }
+    const entries = Dictionary.extractArchive(archiveBytes, config.name);
 
     const pick = (ext: string): Uint8Array | null => {
       const key = Object.keys(entries).find((k) => k.toLowerCase().endsWith(ext));

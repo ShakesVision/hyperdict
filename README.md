@@ -103,11 +103,14 @@ Plain `<script>` (Blogger/static sites): load `dist/hyperdict.min.js` (global
 (which is also the GitHub Pages site).
 
 The popup includes, out of the box: **per-dictionary direction & font** (Urdu →
-RTL + Nastaliq), **`bword://` cross-reference links** (click a linked word to
-look it up), **recent-search history** with a back button, an **ⓘ info panel**
-(dictionary metadata + attribution), and a **＋ Manage panel** so end-users can
-add/remove dictionaries by pasting the `.ifo`/`.idx`/`.dict.dz`(+optional
-`.syn`) URLs. Useful options:
+RTL + Nastaliq), **`bword://` cross-reference links**, **recent-search history**
+with a back button, an **ⓘ info panel**, **copy** (this dictionary or all of
+them, as **plain text / Markdown / HTML**), a **resizable** window (drag the
+top-left grip, up to near-full-screen) with a single-row scrollable tab bar,
+crisp **inline SVG icons**, and a **＋ Manage panel** to add/remove, **enable/
+disable**, **reorder** (drag order via ↑/↓), and **reset** dictionaries — adding
+one via individual file URLs *or* a single archive (**.zip / .tar / .tar.gz**).
+Useful options:
 
 ```javascript
 mountHyperDictUI({
@@ -202,8 +205,15 @@ npm run build && npx http-server docs                 # open the demo (docs/inde
 
 ## 👤 Author
 
-Shakeeb Ahmad
+Shakeeb Ahmad — [shakeeb.in](https://shakeeb.in)
 
 ## 📄 License
 
-MIT
+**Apache-2.0** — free to use, modify and redistribute, **with attribution**
+(keep the `LICENSE`/`NOTICE` and the copyright banner in the bundles). See
+[`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE).
+
+## 📦 Publishing
+
+See [`PUBLISHING.md`](./PUBLISHING.md) for the release checklist (version, build,
+`npm publish`, GitHub Pages).

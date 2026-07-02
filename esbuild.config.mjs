@@ -14,6 +14,10 @@ const common = {
   sourcemap: true,
   target: 'es2020',
   logLevel: 'info',
+  // Preserved even after minification (leading '!'): attribution banner.
+  banner: {
+    js: '/*! HyperDict — ultra-fast StarDict engine for the browser | (c) 2026 Shakeeb Ahmad (https://shakeeb.in) | Apache-2.0 | https://github.com/ShakesVision/hyperdict */',
+  },
 };
 
 // fflate is bundled into the core browser bundle so consumers need no <script>.

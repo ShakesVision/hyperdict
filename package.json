@@ -17,18 +17,24 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "npm run build:ts && npm run build:bundle",
     "build:ts": "tsc",
     "build:bundle": "node esbuild.config.mjs",
     "dev": "tsc -w",
     "test": "vitest",
+    "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/ --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepublishOnly": "npm run test:run && npm run build"
   },
   "keywords": [
     "dictionary",
@@ -41,8 +47,16 @@
     "goldendict js",
     "shakeeb dictionary"
   ],
-  "author": "Shakeeb Ahmad",
-  "license": "MIT",
+  "author": "Shakeeb Ahmad (https://shakeeb.in)",
+  "license": "Apache-2.0",
+  "homepage": "https://shakesvision.github.io/hyperdict/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShakesVision/hyperdict.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ShakesVision/hyperdict/issues"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",

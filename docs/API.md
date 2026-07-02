@@ -100,6 +100,7 @@ management UI — nothing vanishes on a stray click.
 | Method | Effect |
 |---|---|
 | `setEnabled(name, enabled): Promise<void>` | Disable = unload (frees index memory) but keep the config; enable = (re)load it. Safe before `init()`. |
+| `reorderDictionaries(names): void` | Reorder dictionaries (drives tab order). Names omitted keep their relative order at the end. |
 | `removeDictionary(name): boolean` | Drop the dictionary. **Keeps** any cached files, so re-adding is cheap. |
 | `purgeDictionary(name): Promise<boolean>` | Hard delete: drop it **and** clear its cached files from Cache Storage. |
 | `resetToDefaults(): Promise<void>` | Remove all custom dictionaries and re-enable every default. |
@@ -161,8 +162,9 @@ With `path`, HyperDict tries `<name>.dict.dz` first, then `<name>.dict`. With
 `archive` downloads and decompresses the **entire** dictionary into memory (a zip
 can't be range-read from the server). Great for small dictionaries or bundled
 offline use; for large ones prefer `path`/`files` so only needed bytes are read.
-**Format:** `.zip` only (via fflate `unzipSync`; the inner `.dict.dz`/`.dict` is
-still handled correctly). `.tar`/`.tar.gz` are not supported yet.
+**Formats:** `.zip`, `.tar`, and `.tar.gz`/`.tgz` (detected by magic bytes; the
+inner `.dict.dz`/`.dict` is still handled correctly). `.7z`/`.rar` aren't
+supported (they'd bloat the bundle with heavy codecs).
 
 ---
 
@@ -232,13 +234,16 @@ const ui = mountHyperDictUI({
 });
 ```
 
-The popup provides: dictionary **tabs** (missing ones dimmed), a **search box**,
-**`bword://` and relative link** lookups (other schemes like `javascript:` are
-never executed), a **← back** button, a **🕘 recent** dropdown, an **ⓘ
-info/attribution** panel, and a **＋ Manage** panel — enable/disable each
-dictionary (reversible), **Delete** custom ones (permanent, clears cache),
-**Reset to defaults**, and add new ones by archive URL or explicit file URLs.
-All persisted to localStorage.
+The popup provides: dictionary **tabs** (single-row, horizontally scrollable;
+missing ones dimmed), a **search box**, **`bword://` and relative link** lookups
+(other schemes like `javascript:` are never executed), a **back** button, a
+**recent** dropdown, a **copy** menu (this dictionary or all, as **plain /
+Markdown / HTML**), an **info/attribution** panel, a **resizable** window (drag
+the top-left grip up to near-full-screen), crisp inline **SVG icons**, and a
+**Manage** panel — enable/disable (reversible), **reorder** (↑/↓), **Delete**
+custom ones (permanent, clears cache), **Reset to defaults**, and add new ones by
+explicit file URLs *or* a single archive (`.zip`/`.tar`/`.tar.gz`). Dictionary
+set, order, disabled state and recent searches persist to localStorage.
 
 ### `restoreDictionaryState(engine, opts?)`
 Restore the persisted dictionary set (custom dictionaries + disabled state).
@@ -254,8 +259,13 @@ await engine.init();
 - `ShakeebDictPopup` — the popup component (use directly for a custom mount).
 - `attachTriggers(options)` — selection + long-press detection; returns `detach()`.
 - `SearchHistory` — bounded, localStorage-backed recent list.
-- `ManageDictionariesPanel` — the add/remove overlay.
+- `ManageDictionariesPanel` — the enable/disable/reorder/add/delete overlay.
 - `prettifyPlainText`, `resolveLinkWord`, `escapeHtml` — pure formatting helpers.
+- `formatOne`, `formatMany`, `htmlToPlain`, `definitionToPlain`, `copyText`,
+  `OutputFormat` — build/copy definitions as plain / Markdown / HTML (headless-friendly).
+- `icon(name, size?)` — the inline SVG icon set.
+- `restoreDictionaryState(engine, opts?)` — restore custom dicts + order +
+  disabled state from localStorage **before** `init()`.
 
 ---
 

@@ -1,0 +1,9 @@
+HyperDict
+Copyright 2026 Shakeeb Ahmad
+
+This product includes software developed by Shakeeb Ahmad (https://shakeeb.in).
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Bundled dependency:
+  - fflate (https://github.com/101arrowz/fflate) — MIT License.

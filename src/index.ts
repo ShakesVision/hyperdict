@@ -1,9 +1,12 @@
 /**
- * HyperDict - Ultra-fast StarDict dictionary engine for the browser
- * Authored by Shakeeb Ahmad
+ * HyperDict — ultra-fast StarDict dictionary engine for the browser.
  *
  * Public entry point for the core (DOM-free) engine. The reusable popup UI
  * lives in a separate entry: `hyperdict/ui` (src/ui.ts).
+ *
+ * @author Shakeeb Ahmad (https://shakeeb.in)
+ * @copyright 2026 Shakeeb Ahmad
+ * @license Apache-2.0
  */
 
 // Core engine

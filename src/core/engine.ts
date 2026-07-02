@@ -182,6 +182,26 @@ export class HyperDict {
   }
 
   /**
+   * Reorder dictionaries to match `orderedNames` (drives tab order). Names not
+   * listed keep their relative order at the end; unknown names are ignored.
+   */
+  public reorderDictionaries(orderedNames: string[]): void {
+    const configs = new Map<string, DictionaryConfig>();
+    const origins = new Map<string, DictionaryOrigin>();
+    const take = (name: string): void => {
+      const cfg = this.configs.get(name);
+      if (cfg && !configs.has(name)) {
+        configs.set(name, cfg);
+        origins.set(name, this.origins.get(name) ?? 'default');
+      }
+    };
+    orderedNames.forEach(take);
+    for (const name of this.configs.keys()) take(name); // append any not listed
+    this.configs = configs;
+    this.origins = origins;
+  }
+
+  /**
    * Reset to the default set: remove all custom dictionaries and (re)enable
    * every default. Loads any default that was disabled.
    */
@@ -276,11 +296,16 @@ export class HyperDict {
     metadata: DictionaryMetadata;
     config: DictionaryConfig;
   }> {
-    return Array.from(this.dictionaries.values()).map((dict) => ({
-      name: dict.name,
-      metadata: dict.metadata,
-      config: dict.config,
-    }));
+    // Follow the config order (which reorderDictionaries controls) so tab order
+    // is stable and user-controllable, not "whichever loaded first".
+    const out: Array<{ name: string; metadata: DictionaryMetadata; config: DictionaryConfig }> = [];
+    for (const name of this.configs.keys()) {
+      const dict = this.dictionaries.get(name);
+      if (dict) {
+        out.push({ name: dict.name, metadata: dict.metadata, config: dict.config });
+      }
+    }
+    return out;
   }
 
   /** Every KNOWN dictionary (enabled or not) with its state — drives the manage UI. */
