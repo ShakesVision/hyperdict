@@ -8,26 +8,19 @@
 
 export class ShaekeebRangeFetcher {
   private url: string;
-  private cache: Map<string, Uint8Array> = new Map(); // Simple in-memory cache
 
   constructor(url: string) {
     this.url = url;
   }
 
   /**
-   * Fetch byte range from URL
-   * Uses HTTP Range header for efficient partial downloads
+   * Fetch a byte range via an HTTP Range request (end exclusive).
+   *
+   * No response caching here on purpose: decompressed dictzip chunks are cached
+   * by the block reader (bounded LRU) and resolved definitions by the engine,
+   * so caching raw ranges here too would just grow unbounded and double-store.
    */
   public async fetchRange(start: number, end: number): Promise<Uint8Array> {
-    // String key: JS bitwise ops are 32-bit, so `(start << 32) | end` overflowed
-    // and collided for any offset >= 4GB / any large end. Offsets here are
-    // routinely in the tens of MB, well past the 32-bit boundary once shifted.
-    const cacheKey = `${start}-${end}`;
-
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!;
-    }
-
     try {
       const response = await fetch(this.url, {
         headers: {
@@ -36,17 +29,10 @@ export class ShaekeebRangeFetcher {
       });
 
       if (!response.ok && response.status !== 206) {
-        // 206 is Partial Content
         throw new Error(`Failed to fetch range: ${response.status} ${response.statusText}`);
       }
 
-      const buffer = await response.arrayBuffer();
-      const data = new Uint8Array(buffer);
-
-      // Cache the result
-      this.cache.set(cacheKey, data);
-
-      return data;
+      return new Uint8Array(await response.arrayBuffer());
     } catch (error) {
       throw new Error(`Range fetch failed for ${this.url} (${start}-${end}): ${String(error)}`);
     }
@@ -91,33 +77,5 @@ export class ShaekeebRangeFetcher {
     const response = await fetch(this.url, { method: 'HEAD' });
     const acceptRanges = response.headers.get('accept-ranges');
     return acceptRanges !== 'none';
-  }
-
-  /**
-   * Clear cache
-   */
-  public clearCache(): void {
-    this.cache.clear();
-  }
-
-  /**
-   * Get cache statistics
-   */
-  public getCacheStats(): {
-    size: number;
-    itemCount: number;
-    memoryUsage: number;
-  } {
-    let memoryUsage = 0;
-
-    for (const data of this.cache.values()) {
-      memoryUsage += data.byteLength;
-    }
-
-    return {
-      size: this.cache.size,
-      itemCount: this.cache.size,
-      memoryUsage,
-    };
   }
 }

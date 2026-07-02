@@ -545,20 +545,28 @@ export class Dictionary {
     return result;
   }
 
+  /** StarDict content types rendered/treated as rich markup rather than plain text. */
+  private static isMarkupType(t: string): boolean {
+    return t === 'h' || t === 'g' || t === 'x';
+  }
+
   /**
    * Decode a definition payload into {type, text} honoring `sametypesequence`.
    * - single-char sametypesequence (the common case, e.g. 'h'): whole payload
    *   is that type.
    * - no sametypesequence: first byte is the type char, the rest is the data
    *   (trailing NUL stripped) — covers single-field entries.
-   * - multi-char sametypesequence: best-effort, decode as the first type.
+   * - multi-char sametypesequence: parse each declared field in order.
    */
   private decodePayload(bytes: Uint8Array): { type: string; text: string } {
-    if (this.contentType.length === 1) {
-      return { type: this.contentType, text: this.decoder.decode(bytes) };
+    const seq = this.contentType;
+
+    if (seq.length === 1) {
+      return { type: seq, text: this.decoder.decode(bytes) };
     }
 
-    if (this.contentType.length === 0 && bytes.length > 0) {
+    if (seq.length === 0) {
+      if (bytes.length === 0) return { type: 'm', text: '' };
       const type = String.fromCharCode(bytes[0]);
       let payload = bytes.subarray(1);
       if (payload.length > 0 && payload[payload.length - 1] === 0) {
@@ -567,9 +575,53 @@ export class Dictionary {
       return { type, text: this.decoder.decode(payload) };
     }
 
-    // Multi-char sametypesequence: structured multi-field entries are rare for
-    // the dictionaries we target; decode the whole block under the first type.
-    return { type: this.contentType.charAt(0) || 'm', text: this.decoder.decode(bytes) };
+    return this.decodeSameTypeSequence(bytes, seq);
+  }
+
+  /**
+   * Decode a multi-field entry described by `sametypesequence`. Per the StarDict
+   * spec, for fields before the last: lowercase types are NUL-terminated,
+   * uppercase types (W/P/…) carry a 4-byte big-endian length; the last field is
+   * the remainder. Uppercase (binary: audio/image) fields are skipped for text
+   * rendering. Text fields are concatenated; the result type is 'h' if any field
+   * is markup, else the first text field's type.
+   */
+  private decodeSameTypeSequence(bytes: Uint8Array, seq: string): { type: string; text: string } {
+    const parts: string[] = [];
+    let resultType = '';
+    let pos = 0;
+
+    for (let i = 0; i < seq.length; i++) {
+      const t = seq[i];
+      const isLast = i === seq.length - 1;
+      const isBinary = t >= 'A' && t <= 'Z';
+
+      if (isBinary) {
+        // 4-byte BE size prefix, then that many bytes (skipped for text output).
+        if (pos + 4 > bytes.length) break;
+        const size =
+          ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
+        pos += 4 + size;
+        continue;
+      }
+
+      let fieldEnd: number;
+      if (isLast) {
+        fieldEnd = bytes.length;
+      } else {
+        fieldEnd = pos;
+        while (fieldEnd < bytes.length && bytes[fieldEnd] !== 0) fieldEnd++;
+      }
+
+      const text = this.decoder.decode(bytes.subarray(pos, fieldEnd));
+      if (text) parts.push(text);
+      if (!resultType || (Dictionary.isMarkupType(t) && !Dictionary.isMarkupType(resultType))) {
+        resultType = t;
+      }
+      pos = isLast ? bytes.length : fieldEnd + 1;
+    }
+
+    return { type: resultType || 'm', text: parts.join('\n\n') };
   }
 
   // --- introspection -------------------------------------------------------

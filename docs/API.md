@@ -281,12 +281,18 @@ Exported from `hyperdict` for custom pipelines:
 
 ## Performance & memory targets
 
-| Metric | Target |
+| Metric | Target / measured |
 |---|---|
 | Index (binary) search | < 1 ms |
-| Total lookup (warm cache) | < 1 ms |
+| Lookup across 3 dicts (352k words) | ~28 µs warm |
 | Total lookup (cold, network) | ~5–20 ms |
-| Memory (1M-word dict) | ~25 MB (index ~22 MB + bloom 256 KB + prefix ~150 KB + chunk cache ~2 MB) |
+| Index parse/load (237k-word .idx) | ~60 ms (direct TypedArray build — no per-word string round-trip) |
+| Memory (1M-word dict) | ~22 MB index (+ ~150 KB prefix; Bloom filter off by default) |
+
+The `.idx` parser copies word bytes straight into the index (no decode→string→
+re-encode), the Bloom filter is off by default, and lookups compare array views
+(no per-comparison copies) — so load stays light even for large dictionaries on
+low-end devices.
 
 ### Known limitations (v0.x)
 - `idxoffsetbits=64` dictionaries are not supported (offsets are stored as

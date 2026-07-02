@@ -17,6 +17,7 @@ export class ShaekeebPrefixIndex {
   private index: ShaekeebTypedIndex;
   private prefixes: Map<number, { start: number; end: number }> = new Map();
   private decoder: TextDecoder;
+  private encoder: TextEncoder = new TextEncoder();
 
   constructor(index: ShaekeebTypedIndex) {
     this.index = index;
@@ -81,8 +82,7 @@ export class ShaekeebPrefixIndex {
    * Get prefix key from search term
    */
   private getPrefixKeyFromWord(word: string): number {
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(word);
+    const bytes = this.encoder.encode(word);
 
     if (bytes.length < 2) {
       return -1;

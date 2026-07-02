@@ -7,72 +7,77 @@
  * - Each entry: [word]\0 [offset:4bytes big-endian] [size:4bytes big-endian]
  */
 
-import { ShaekeebTypedIndexBuilder } from './typed-index';
-import type { DictionaryMetadata } from '../core/types';
+import type { DictionaryMetadata, ShaekeebTypedIndex } from '../core/types';
 
 export class ShaekeebIdxParser {
-  private decoder: TextDecoder;
-
-  constructor() {
-    this.decoder = new TextDecoder('utf-8');
-  }
-
   /**
-   * Parse .idx file buffer into TypedIndex structure
-   * Returns built index ready for binary search.
+   * Parse a .idx buffer directly into a TypedIndex — no intermediate strings.
+   *
+   * Each entry is `word\0` + u32 BE offset + u32 BE size (9 header bytes after
+   * the word). We do two passes: pass 1 counts entries and total word bytes so
+   * we can allocate exact-size TypedArrays; pass 2 copies the raw UTF-8 word
+   * bytes straight into `wordsBuffer` and reads the offset/size. The old code
+   * decoded each word to a JS string and then re-encoded it in the builder —
+   * ~2 TextCodec ops + a throwaway string per word (≈half a second for a 237k
+   * dictionary). Copying bytes directly removes all of that.
+   *
    * Accepts an ArrayBuffer (network) or a Uint8Array (e.g. extracted from a zip).
    */
-  public parseIdx(input: ArrayBuffer | Uint8Array): ReturnType<ShaekeebTypedIndexBuilder['build']> {
+  public parseIdx(input: ArrayBuffer | Uint8Array): ShaekeebTypedIndex {
     const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const len = bytes.byteLength;
-    const builder = new ShaekeebTypedIndexBuilder();
-    let offset = 0;
 
-    while (offset < len) {
-      // Read null-terminated word
-      const wordStart = offset;
-      let wordEnd = offset;
-
-      // Find null terminator
-      while (wordEnd < len && view.getUint8(wordEnd) !== 0) {
-        wordEnd++;
+    // Pass 1: count entries and sum word-byte lengths.
+    let count = 0;
+    let wordBytesTotal = 0;
+    let off = 0;
+    while (off < len) {
+      let end = off;
+      while (end < len && bytes[end] !== 0) {
+        end++;
       }
-
-      if (wordEnd >= len) {
-        break; // Malformed entry
+      if (end + 9 > len) {
+        break; // NUL(1) + offset(4) + size(4)
       }
-
-      // Decode word (subarray keeps us correct even for a view with a byteOffset)
-      const word = this.decoder.decode(bytes.subarray(wordStart, wordEnd));
-
-      offset = wordEnd + 1; // Skip null terminator
-
-      // Check if we have enough bytes for offset and length
-      if (offset + 8 > len) {
-        break;
-      }
-
-      // Read file offset (4 bytes, big-endian)
-      const fileOffset = view.getUint32(offset, false);
-      offset += 4;
-
-      // Read definition length (4 bytes, big-endian)
-      const length = view.getUint32(offset, false);
-      offset += 4;
-
-      builder.addEntry(word, fileOffset, length);
+      count++;
+      wordBytesTotal += end - off;
+      off = end + 9;
     }
 
-    return builder.build();
+    const wordsBuffer = new Uint8Array(wordBytesTotal);
+    const wordOffsets = new Uint32Array(count);
+    const offsetArray = new Uint32Array(count);
+    const lengthArray = new Uint32Array(count);
+
+    // Pass 2: copy word bytes + read offset/size.
+    off = 0;
+    let wi = 0;
+    let wb = 0;
+    while (off < len && wi < count) {
+      let end = off;
+      while (end < len && bytes[end] !== 0) {
+        end++;
+      }
+      if (end + 9 > len) {
+        break;
+      }
+      wordOffsets[wi] = wb;
+      wordsBuffer.set(bytes.subarray(off, end), wb);
+      wb += end - off;
+      offsetArray[wi] = view.getUint32(end + 1, false); // BE file offset
+      lengthArray[wi] = view.getUint32(end + 5, false); // BE definition size
+      wi++;
+      off = end + 9;
+    }
+
+    return { wordsBuffer, wordOffsets, offsetArray, lengthArray };
   }
 
   /**
    * Parse .idx file from URL using fetch
    */
-  public async parseIdxFromUrl(
-    url: string
-  ): Promise<ReturnType<ShaekeebTypedIndexBuilder['build']>> {
+  public async parseIdxFromUrl(url: string): Promise<ShaekeebTypedIndex> {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch ${url}: ${response.statusText}`);

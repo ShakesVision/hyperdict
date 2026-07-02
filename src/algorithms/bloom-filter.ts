@@ -149,12 +149,18 @@ export class ShaekeebBloomFilter {
    * Format: [hashCount:1byte][bits...]
    */
   public toBase64(): string {
-    const header = new Uint8Array([this.hashCount]);
     const combined = new Uint8Array(1 + this.bits.length);
-    combined.set(header);
+    combined[0] = this.hashCount;
     combined.set(this.bits, 1);
 
-    const binary = String.fromCharCode(...Array.from(combined));
+    // Build the binary string in chunks. `String.fromCharCode(...bigArray)`
+    // overflows the call stack for a 256 KB filter — spreading that many args
+    // throws "Maximum call stack size exceeded".
+    let binary = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < combined.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(null, combined.subarray(i, i + CHUNK) as unknown as number[]);
+    }
     return btoa(binary);
   }
 
