@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>HyperDict — Settings</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { max-width: 720px; margin: 0 auto; padding: 24px; color: #000;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; }
+      h1 { font-size: 1.5em; border-bottom: 2px solid #000; padding-bottom: 10px; }
+      h2 { font-size: 1.1em; margin-top: 26px; }
+      label { font-weight: 600; font-size: 14px; }
+      .field { margin: 12px 0; }
+      input[type=text], select { width: 100%; padding: 8px; border: 1px solid #000; border-radius: 4px; font-size: 14px; }
+      .check { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+      .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .dict { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin: 10px 0; }
+      .dict .two3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+      .dhead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+      .dhead .name { flex: 1; font-weight: 700; }
+      .rm { border: 1px solid #000; background: #fff; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+      .rm:hover { background: #000; color: #fff; }
+      .actions { position: sticky; bottom: 0; background: #fff; padding: 14px 0; border-top: 1px solid #eee; margin-top: 20px; display: flex; gap: 12px; align-items: center; }
+      .btn { padding: 10px 18px; border: 2px solid #000; border-radius: 6px; font-weight: 700; cursor: pointer; }
+      .primary { background: #000; color: #fff; }
+      .primary:hover { background: #fff; color: #000; }
+      .ghost { background: #fff; color: #000; }
+      .ghost:hover { background: #000; color: #fff; }
+      #status { color: #060; font-weight: 700; }
+      .hint { font-size: 12px; color: #666; }
+      code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <h1>⚡ HyperDict — Settings</h1>
+
+    <label class="check"><input type="checkbox" id="enabled" /> Enable HyperDict on webpages</label>
+
+    <h2>Appearance</h2>
+    <div class="two">
+      <div class="field"><label>Direction</label>
+        <select id="dir"><option value="rtl">Right-to-left (Urdu/Arabic)</option><option value="ltr">Left-to-right</option></select>
+      </div>
+      <div class="field"><label>Search placeholder</label><input type="text" id="placeholder" /></div>
+    </div>
+    <div class="two">
+      <div class="field"><label>Selection chip (emoji/text, blank = 🔍)</label><input type="text" id="chipLabel" placeholder="🔍 / 📖 / Define" /></div>
+      <div class="field">
+        <label class="check"><input type="checkbox" id="attribution" /> Show “Powered by HyperDict” credit</label>
+        <label class="check"><input type="checkbox" id="selection" /> Show chip on text selection</label>
+        <label class="check"><input type="checkbox" id="longPress" /> Also look up on long-press (may hijack selection)</label>
+      </div>
+    </div>
+
+    <h2>Dictionaries</h2>
+    <p class="hint">Source is a folder URL (files named <code>&lt;name&gt;.ifo/.idx/.dict.dz</code>) or an archive URL (<code>.zip/.tar/.tar.gz</code>). Host must support HTTP Range (raw.githubusercontent, R2, S3…).</p>
+    <div id="dicts"></div>
+    <button class="btn ghost" id="addDict">+ Add dictionary</button>
+
+    <div class="actions">
+      <button class="btn primary" id="save">Save</button>
+      <button class="btn ghost" id="reset">Reset to defaults</button>
+      <span id="status"></span>
+    </div>
+
+    <script src="settings.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

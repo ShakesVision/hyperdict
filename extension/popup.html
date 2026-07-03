@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { width: 240px; margin: 0; padding: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #000; }
+      .hd { font-weight: 800; font-size: 16px; margin-bottom: 12px; }
+      button { width: 100%; padding: 10px; border: 1px solid #000; background: #000; color: #fff; border-radius: 6px; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
+      button:hover { background: #fff; color: #000; }
+      .row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 12px; }
+      .link { background: #fff; color: #000; font-weight: 600; }
+      .credit { font-size: 11px; color: #666; text-align: center; }
+      .credit a { color: #000; }
+      code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <div class="hd">⚡ HyperDict</div>
+    <button id="open">🔍 Open dictionary</button>
+    <label class="row"><input type="checkbox" id="site" /> Enabled on <code id="host">this site</code></label>
+    <button id="opts" class="link">Settings &amp; dictionaries…</button>
+    <div class="credit">by <a href="https://shakeeb.in" target="_blank" rel="noopener">Shakeeb Ahmad</a></div>
+    <script src="settings.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

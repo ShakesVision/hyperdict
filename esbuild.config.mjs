@@ -46,7 +46,14 @@ for (const file of copyToDocs) {
   fs.copyFileSync(path.join(distDir, file), path.join(docsDir, file));
 }
 
-console.log('✅ Built core + UI bundles and copied browser globals into docs/.');
+// Copy the (map-less) globals into the Chrome extension's vendor folder.
+const vendorDir = path.join(__dirname, 'extension', 'vendor');
+fs.mkdirSync(vendorDir, { recursive: true });
+for (const file of ['hyperdict.min.js', 'hyperdict-ui.min.js']) {
+  fs.copyFileSync(path.join(distDir, file), path.join(vendorDir, file));
+}
+
+console.log('✅ Built core + UI bundles → docs/ (demo) and extension/vendor/ (extension).');
 console.log('   dist/hyperdict.min.js (global HyperDict, fflate bundled)');
 console.log('   dist/hyperdict-ui.min.js (global HyperDictUI)');
 console.log('   + matching .esm.js for npm/bundler consumers');

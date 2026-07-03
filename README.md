@@ -19,7 +19,8 @@ Ultra-fast StarDict dictionary engine for the browser - GoldenDict-style lookups
 - **Synonyms & content types**: Resolves `.syn` synonyms and honors `sametypesequence` (renders HTML vs text correctly)
 - **Mobile Optimized**: Runs efficiently on low-end Android devices
 - **Multiple Dictionaries**: Multiple dictionaries with lazy parallel loading
-- **Reusable UI**: An optional, dependency-free popup (`hyperdict/ui`) with text-selection and long-press triggers
+- **Reusable UI**: An optional, dependency-free popup (`hyperdict/ui`) — selection chip, autocomplete, copy, reverse lookup, manage panel
+- **Use anywhere**: npm / bundler, a plain `<script>`, a **bookmarklet**, or the bundled **Chrome extension** — add it to any webpage
 
 ## 📦 Supported Format
 
@@ -193,6 +194,55 @@ engine.listDictionaries();                  // {name, origin, enabled, loaded, �
 > they break random-access chunk reads. There is no server "meaning" endpoint;
 > HyperDict computes definitions in the browser. (For fully offline use, download
 > once with `preload` + `persist`, or bundle an `archive`.)
+
+## 🔖 Use on ANY webpage (extension / bookmarklet / console)
+
+Three ways to add HyperDict to pages you don't control:
+
+### 1. Chrome extension (most robust)
+
+The [`extension/`](./extension) folder is a ready **Manifest V3** extension:
+select a word on any site → the popup opens; a settings page mirrors all the
+library's customization. It works even on strict-CSP sites (content scripts run
+in an isolated world). Load it via `chrome://extensions` → *Load unpacked* → pick
+`extension/`. See [`extension/README.md`](./extension/README.md) and
+[`extension/PUBLISHING.md`](./extension/PUBLISHING.md).
+
+### 2. Bookmarklet
+
+Make a bookmark whose URL is the line below; click it on any page to open HyperDict:
+
+```
+javascript:(function(){if(window.__hd)return window.__hd.open();var B='https://shakesvision.github.io/hyperdict/',L=function(s){return new Promise(function(r,j){var e=document.createElement('script');e.src=s;e.onload=r;e.onerror=j;document.head.appendChild(e)})};L(B+'hyperdict.min.js').then(function(){return L(B+'hyperdict-ui.min.js')}).then(function(){var R='https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/',e=new HyperDict.HyperDict({persist:true});[['UrduLughat','UrduLughatOffline/'],['UDB_Lughat_Kabeer','UDBLite/'],['thesaurus','Thesaurus/']].forEach(function(d){e.registerDictionary({name:d[0],path:R+d[1],lang:'ur',dir:'rtl'})});return e.init().then(function(){window.__hd=HyperDictUI.mountHyperDictUI({engine:e,dir:'rtl',placeholder:'تلاش کریں'});window.__hd.open()})}).catch(function(x){alert('HyperDict: '+x)})})();
+```
+
+### 3. Dev console
+
+Paste into DevTools → Console to inject + initialize on the current page:
+
+```js
+(async () => {
+  const B = 'https://shakesvision.github.io/hyperdict/';
+  const load = (s) => new Promise((r, j) => {
+    const e = document.createElement('script'); e.src = s; e.onload = r; e.onerror = j;
+    document.head.appendChild(e);
+  });
+  await load(B + 'hyperdict.min.js');
+  await load(B + 'hyperdict-ui.min.js');
+  const REPO = 'https://raw.githubusercontent.com/ShakesVision/urdu-archive/refs/heads/master/raw/DICTIONARIES/Urdu-Urdu/';
+  const engine = new HyperDict.HyperDict({ persist: true });
+  [['UrduLughat', 'UrduLughatOffline/'], ['UDB_Lughat_Kabeer', 'UDBLite/'], ['thesaurus', 'Thesaurus/']]
+    .forEach(([name, p]) => engine.registerDictionary({ name, path: REPO + p, lang: 'ur', dir: 'rtl' }));
+  await engine.init();
+  window.__hd = HyperDictUI.mountHyperDictUI({ engine, dir: 'rtl', placeholder: 'تلاش کریں' });
+  window.__hd.open();
+})();
+```
+
+> The scripts load from the GitHub Pages copy (or, once published, `cdn.jsdelivr.net/npm/hyperdict/dist/`).
+> **CSP note:** the bookmarklet/console inject `<script src>`, which sites with a
+> strict Content-Security-Policy block — use the **extension** there (it isn't
+> subject to page CSP).
 
 ## 🏗️ Architecture
 

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "HyperDict — instant dictionary on any page",
+  "version": "0.1.0",
+  "description": "Select or search any word on any webpage to get instant StarDict definitions (Urdu & more). By Shakeeb Ahmad.",
+  "author": "Shakeeb Ahmad",
+  "homepage_url": "https://shakesvision.github.io/hyperdict/",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "HyperDict",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://raw.githubusercontent.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "vendor/hyperdict.min.js",
+        "vendor/hyperdict-ui.min.js",
+        "settings.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
