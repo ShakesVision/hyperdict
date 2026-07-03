@@ -4,7 +4,7 @@
  *
  * StarDict definitions are located by an uncompressed byte offset + length taken
  * from the .idx. Two implementations satisfy this contract:
- *   - ShaekeebBlockReader — for dictzip (.dict.dz) content (fetch chunk + inflate)
+ *   - ShakeebBlockReader — for dictzip (.dict.dz) content (fetch chunk + inflate)
  *   - PlainDictReader      — for an UNCOMPRESSED .dict file (just read the range)
  *
  * A plain .dict stores the exact same bytes a .dict.dz decompresses to, so the

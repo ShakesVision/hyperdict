@@ -68,7 +68,7 @@ TypedIndex {
 
 **Builder Pattern**:
 ```typescript
-const builder = new ShaekeebTypedIndexBuilder();
+const builder = new ShakeebTypedIndexBuilder();
 builder.addEntry('word', fileOffset, length);
 const index = builder.build(); // Creates TypedArrays
 ```

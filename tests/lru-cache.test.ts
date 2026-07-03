@@ -4,13 +4,13 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ShaekeebLRUCache } from '../src/algorithms/lru-cache';
+import { ShakeebLRUCache } from '../src/algorithms/lru-cache';
 
-describe('ShaekeebLRUCache', () => {
-  let cache: ShaekeebLRUCache;
+describe('ShakeebLRUCache', () => {
+  let cache: ShakeebLRUCache;
 
   beforeEach(() => {
-    cache = new ShaekeebLRUCache(3); // Small cache for testing
+    cache = new ShakeebLRUCache(3); // Small cache for testing
   });
 
   it('should add and retrieve items', () => {
@@ -121,7 +121,7 @@ describe('ShaekeebLRUCache', () => {
   });
 
   it('should handle large cache', () => {
-    const largeCache = new ShaekeebLRUCache(1000);
+    const largeCache = new ShakeebLRUCache(1000);
     const data = new Uint8Array([1, 2, 3, 4, 5]);
 
     // Add 1000 items

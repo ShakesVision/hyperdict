@@ -46,9 +46,10 @@
         <h2>How to look up a word</h2>
         <button id="openBtn" class="cta" disabled>🔍 Open dictionary</button>
         <div class="hint">
-          Click the button above to open the search box directly, or:<br />
-          <strong>Desktop:</strong> select any word/phrase below → click the 🔍 chip that appears.<br />
-          <strong>Mobile:</strong> long-press a word.
+          Click the button above to open the search box directly, or <strong>select
+          any word/phrase</strong> below (on desktop or mobile) → tap the 🔍 chip that
+          appears next to it. On mobile the chip sits alongside the normal
+          copy/share menu, so ordinary selection still works.
         </div>
       </div>
 
@@ -142,9 +143,10 @@
             engine,
             placeholder: 'تلاش کریں',
             dir: 'rtl',
-            selection: true,
-            longPress: true,
+            selection: true, // select text → 🔍 chip (works on mobile too)
+            longPress: false, // off: it collides with normal text selection
             manage: true, // ＋ button: add/remove dictionaries (persisted to localStorage)
+            // chipLabel: '📖',  // ← customize the selection chip (emoji/text/HTML)
           });
 
           // Big CTA: open the popup's search box directly (no word needed).

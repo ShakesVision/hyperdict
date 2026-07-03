@@ -66,7 +66,7 @@ const CSS = `
 .${PREFIX}-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:2147483646;display:none}
 .${PREFIX}-overlay.open{display:block}
 .${PREFIX}-popup{position:fixed;bottom:20px;right:20px;width:460px;height:auto;
-  max-width:calc(100vw - 24px);max-height:min(96vh,900px);
+  max-width:calc(100vw - 24px);max-height:min(90vh,900px);max-height:min(90dvh,900px);
   background:#fff;color:#000;border:2px solid #000;border-radius:6px;
   box-shadow:0 12px 40px rgba(0,0,0,.35);z-index:2147483647;display:none;flex-direction:column;overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
@@ -136,7 +136,13 @@ const CSS = `
 .${PREFIX}-toast{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:#000;color:#fff;
   padding:6px 12px;border-radius:4px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:6}
 .${PREFIX}-toast.show{opacity:1}
-@media (max-width:600px){.${PREFIX}-popup{width:auto;left:8px;right:8px;bottom:8px}}
+@media (max-width:600px){
+  /* Bottom sheet: cap height (dvh accounts for the mobile URL bar) so the close
+     button + tabs stay on-screen; disable the drag-resize grip on touch. */
+  .${PREFIX}-popup{width:auto;left:8px;right:8px;bottom:8px;
+    max-height:82vh;max-height:82dvh}
+  .${PREFIX}-grip{display:none}
+}
 `;
 
 function injectStyleOnce(): void {
@@ -352,7 +358,8 @@ export class ShakeebDictPopup {
     let startH = 0;
     const onMove = (e: PointerEvent): void => {
       const w = Math.min(Math.max(startW + (startX - e.clientX), 300), window.innerWidth - 24);
-      const h = Math.min(Math.max(startH + (startY - e.clientY), 200), window.innerHeight - 24);
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      const h = Math.min(Math.max(startH + (startY - e.clientY), 200), vh - 24);
       this.root.style.width = `${w}px`;
       this.root.style.height = `${h}px`;
     };

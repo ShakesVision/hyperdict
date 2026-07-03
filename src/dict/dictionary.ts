@@ -12,16 +12,16 @@
  * may hit the network). This keeps the unit DOM-free and worker-portable.
  */
 
-import { ShaekeebIdxParser, ShaekeebIfoParser } from '../index/idx-parser';
+import { ShakeebIdxParser, ShakeebIfoParser } from '../index/idx-parser';
 import { TypedIndexReader } from '../index/typed-index';
-import { ShaekeebBinarySearch } from '../algorithms/binary-search';
-import { ShaekeebPrefixIndex } from '../algorithms/prefix-index';
-import { ShaekeebBloomFilter } from '../algorithms/bloom-filter';
+import { ShakeebBinarySearch } from '../algorithms/binary-search';
+import { ShakeebPrefixIndex } from '../algorithms/prefix-index';
+import { ShakeebBloomFilter } from '../algorithms/bloom-filter';
 import { unzipSync, gunzipSync } from 'fflate';
 
 import { untar, isTar } from '../io/untar';
-import { ShaekeebDictZipHeaderParser } from '../dictzip/header-parser';
-import { ShaekeebBlockReader, type RawInflate } from '../dictzip/block-reader';
+import { ShakeebDictZipHeaderParser } from '../dictzip/header-parser';
+import { ShakeebBlockReader, type RawInflate } from '../dictzip/block-reader';
 import { fetchBuffer } from '../io/cached-fetch';
 import { HttpByteSource, BufferByteSource, type ByteSource } from '../io/byte-source';
 import { PlainDictReader, type ContentReader } from './content-reader';
@@ -31,7 +31,7 @@ import type {
   DictionaryConfig,
   DictionaryFiles,
   DictionaryMetadata,
-  ShaekeebTypedIndex,
+  ShakeebTypedIndex,
   DefinitionResult,
   DictZipHeader,
 } from '../core/types';
@@ -84,11 +84,11 @@ export class Dictionary {
   public readonly config: DictionaryConfig;
   public readonly metadata: DictionaryMetadata;
 
-  private readonly index: ShaekeebTypedIndex;
+  private readonly index: ShakeebTypedIndex;
   private readonly reader: TypedIndexReader;
-  private readonly search: ShaekeebBinarySearch;
-  private readonly prefixIndex: ShaekeebPrefixIndex;
-  private readonly bloom: ShaekeebBloomFilter | null;
+  private readonly search: ShakeebBinarySearch;
+  private readonly prefixIndex: ShakeebPrefixIndex;
+  private readonly bloom: ShakeebBloomFilter | null;
   private readonly synonyms: Map<string, number> | null;
   /** stripped-headword → index, for diacritic-bearing headwords (opt-in). */
   private readonly diacriticMap: Map<string, number> | null;
@@ -103,7 +103,7 @@ export class Dictionary {
   private constructor(args: {
     config: DictionaryConfig;
     metadata: DictionaryMetadata;
-    index: ShaekeebTypedIndex;
+    index: ShakeebTypedIndex;
     synonyms: Map<string, number> | null;
     contentReader: ContentReader | null;
     defCacheMax: number;
@@ -120,14 +120,14 @@ export class Dictionary {
     this.contentType = args.metadata.sametypesequence ?? '';
 
     this.reader = new TypedIndexReader(args.index);
-    this.search = new ShaekeebBinarySearch(args.index);
-    this.prefixIndex = new ShaekeebPrefixIndex(args.index);
+    this.search = new ShakeebBinarySearch(args.index);
+    this.prefixIndex = new ShakeebPrefixIndex(args.index);
 
     // The Bloom filter is optional: prefix + binary search already give
     // O(log n) negatives, and building the filter is a full-corpus hashing pass
     // we'd rather skip on large dictionaries / low-end devices.
     if (args.useBloom) {
-      this.bloom = new ShaekeebBloomFilter(Math.max(1, args.index.wordOffsets.length));
+      this.bloom = new ShakeebBloomFilter(Math.max(1, args.index.wordOffsets.length));
       for (let i = 0; i < args.index.wordOffsets.length; i++) {
         this.bloom.addBytes(this.reader.getWordBytes(i));
       }
@@ -162,8 +162,8 @@ export class Dictionary {
    * dictionary whose content is unreadable still answers "exists?" queries.
    */
   public static async load(config: DictionaryConfig, deps: DictionaryDeps): Promise<Dictionary> {
-    const ifoParser = new ShaekeebIfoParser();
-    const idxParser = new ShaekeebIdxParser();
+    const ifoParser = new ShakeebIfoParser();
+    const idxParser = new ShakeebIdxParser();
     const defCacheMax = deps.defCacheSize ?? 300;
 
     if (config.archive) {
@@ -251,8 +251,8 @@ export class Dictionary {
   private static async loadFromArchive(
     config: DictionaryConfig,
     deps: DictionaryDeps,
-    ifoParser: ShaekeebIfoParser,
-    idxParser: ShaekeebIdxParser,
+    ifoParser: ShakeebIfoParser,
+    idxParser: ShakeebIdxParser,
     defCacheMax: number
   ): Promise<Dictionary> {
     const archiveBytes = new Uint8Array(
@@ -287,7 +287,7 @@ export class Dictionary {
       try {
         const source = new BufferByteSource(dzBytes);
         const header = await Dictionary.loadDictZipHeader(source);
-        contentReader = new ShaekeebBlockReader(source, header, deps.inflate, deps.cacheSize);
+        contentReader = new ShakeebBlockReader(source, header, deps.inflate, deps.cacheSize);
       } catch (e) {
         console.warn(`[hyperdict] Bad .dict.dz inside archive for "${config.name}":`, e);
       }
@@ -337,7 +337,7 @@ export class Dictionary {
           const source = new BufferByteSource(bytes);
           if (isDz) {
             const header = await Dictionary.loadDictZipHeader(source);
-            return new ShaekeebBlockReader(source, header, deps.inflate, deps.cacheSize);
+            return new ShakeebBlockReader(source, header, deps.inflate, deps.cacheSize);
           }
           return new PlainDictReader(source);
         }
@@ -345,7 +345,7 @@ export class Dictionary {
         const source = new HttpByteSource(url);
         if (isDz) {
           const header = await Dictionary.loadDictZipHeader(source);
-          return new ShaekeebBlockReader(source, header, deps.inflate, deps.cacheSize);
+          return new ShakeebBlockReader(source, header, deps.inflate, deps.cacheSize);
         }
         if (await Dictionary.serverSupportsRange(url)) {
           return new PlainDictReader(source);
@@ -385,7 +385,7 @@ export class Dictionary {
    * read exactly enough bytes to cover the whole gzip header.
    */
   private static async loadDictZipHeader(source: ByteSource): Promise<DictZipHeader> {
-    const parser = new ShaekeebDictZipHeaderParser();
+    const parser = new ShakeebDictZipHeaderParser();
 
     // Probe: base header (10) + XLEN (2) + a little slack for FNAME/FCOMMENT.
     const probe = await source.read(0, 512);

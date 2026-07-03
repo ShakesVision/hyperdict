@@ -20,26 +20,26 @@
 
 ### ✅ High-Performance Algorithms (100%)
 
-1. **Binary Search** (`ShaekeebBinarySearch`)
+1. **Binary Search** (`ShakeebBinarySearch`)
    - Direct byte comparison (no temporary strings)
    - UTF-8 safe
    - Prefix search support
    - **Performance**: <1ms for 1M words
 
-2. **Prefix Index** (`ShaekeebPrefixIndex`)
+2. **Prefix Index** (`ShakeebPrefixIndex`)
    - First 2 UTF-8 bytes mapping
    - Reduces search scope 1000-10000x
    - **Memory**: ~150KB
    - **Performance**: <0.1ms prefix lookup
 
-3. **Bloom Filter** (`ShaekeebBloomFilter`)
+3. **Bloom Filter** (`ShakeebBloomFilter`)
    - Instant negative lookup
    - Configurable false positive rate
    - Serialization support (base64)
    - **Memory**: 256KB
    - **Performance**: <0.01ms
 
-4. **LRU Cache** (`ShaekeebLRUCache`)
+4. **LRU Cache** (`ShakeebLRUCache`)
    - Decompressed block caching
    - Default 32 blocks (~2MB)
    - Configurable size
@@ -47,31 +47,31 @@
 
 ### ✅ File Parsing (100%)
 
-- **IDX Parser** (`ShaekeebIdxParser`)
+- **IDX Parser** (`ShakeebIdxParser`)
   - StarDict .idx format support
   - TypedArray output
   - URL-based fetching
   
-- **IFO Parser** (`ShaekeebIfoParser`)
+- **IFO Parser** (`ShakeebIfoParser`)
   - Dictionary metadata extraction
   - Validation support
   - URL-based fetching
 
 ### ✅ DictZip Support (100%)
 
-- **Header Parser** (`ShaekeebDictZipHeaderParser`)
+- **Header Parser** (`ShakeebDictZipHeaderParser`)
   - Gzip header parsing
   - RA extra field extraction
   - Block offset calculation
   
-- **Block Reader** (`ShaekeebBlockReader`)
+- **Block Reader** (`ShakeebBlockReader`)
   - Individual block fetching
   - Decompression with fflate
   - Cache integration
 
 ### ✅ HTTP I/O (100%)
 
-- **Range Fetcher** (`ShaekeebRangeFetcher`)
+- **Range Fetcher** (`ShakeebRangeFetcher`)
   - HTTP Range requests
   - Partial downloads
   - Content-length support
@@ -187,25 +187,25 @@ hyperdict/
 export { HyperDict } from './core/engine';
 
 // Algorithms (for custom usage)
-export { ShaekeebBinarySearch } from './algorithms/binary-search';
-export { ShaekeebPrefixIndex } from './algorithms/prefix-index';
-export { ShaekeebBloomFilter } from './algorithms/bloom-filter';
-export { ShaekeebLRUCache } from './algorithms/lru-cache';
+export { ShakeebBinarySearch } from './algorithms/binary-search';
+export { ShakeebPrefixIndex } from './algorithms/prefix-index';
+export { ShakeebBloomFilter } from './algorithms/bloom-filter';
+export { ShakeebLRUCache } from './algorithms/lru-cache';
 
 // Parsers
-export { ShaekeebIdxParser, ShaekeebIfoParser } from './index/idx-parser';
-export { ShaekeebTypedIndexBuilder, TypedIndexReader } from './index/typed-index';
+export { ShakeebIdxParser, ShakeebIfoParser } from './index/idx-parser';
+export { ShakeebTypedIndexBuilder, TypedIndexReader } from './index/typed-index';
 
 // DictZip
-export { ShaekeebDictZipHeaderParser } from './dictzip/header-parser';
-export { ShaekeebBlockReader } from './dictzip/block-reader';
+export { ShakeebDictZipHeaderParser } from './dictzip/header-parser';
+export { ShakeebBlockReader } from './dictzip/block-reader';
 
 // IO
-export { ShaekeebRangeFetcher } from './io/range-fetch';
+export { ShakeebRangeFetcher } from './io/range-fetch';
 
 // Types
 export type {
-  ShaekeebTypedIndex,
+  ShakeebTypedIndex,
   DictionaryEntry,
   DictionaryMetadata,
   DictionaryConfig,

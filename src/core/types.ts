@@ -7,7 +7,7 @@
  * Typed index structures using SharedArrayBuffer for worker access
  * Provides ultra-fast lookup without copying data to worker
  */
-export interface ShaekeebTypedIndex {
+export interface ShakeebTypedIndex {
   wordsBuffer: Uint8Array; // Raw UTF-8 encoded words
   wordOffsets: Uint32Array; // Offset of each word in wordsBuffer
   offsetArray: Uint32Array; // File offset for each word in .dict file

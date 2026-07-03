@@ -8,7 +8,7 @@
 
 import type { CachedBlock } from '../core/types';
 
-export class ShaekeebLRUCache {
+export class ShakeebLRUCache {
   private cache: Map<number, CachedBlock>;
   private maxSize: number;
   private accessOrder: number[] = []; // Track access order for LRU

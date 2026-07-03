@@ -4,13 +4,13 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ShaekeebBloomFilter } from '../src/algorithms/bloom-filter';
+import { ShakeebBloomFilter } from '../src/algorithms/bloom-filter';
 
-describe('ShaekeebBloomFilter', () => {
-  let filter: ShaekeebBloomFilter;
+describe('ShakeebBloomFilter', () => {
+  let filter: ShakeebBloomFilter;
 
   beforeEach(() => {
-    filter = new ShaekeebBloomFilter(1000, 0.01);
+    filter = new ShakeebBloomFilter(1000, 0.01);
   });
 
   it('should add and find items', () => {
@@ -55,7 +55,7 @@ describe('ShaekeebBloomFilter', () => {
     filter.add('world');
 
     const base64 = filter.toBase64();
-    const restored = ShaekeebBloomFilter.fromBase64(base64);
+    const restored = ShakeebBloomFilter.fromBase64(base64);
 
     expect(restored.mightContain('hello')).toBe(true);
     expect(restored.mightContain('world')).toBe(true);
@@ -101,7 +101,7 @@ describe('ShaekeebBloomFilter', () => {
 
   it('should have low false positive rate', () => {
     const itemCount = 1000;
-    const filter100 = new ShaekeebBloomFilter(itemCount, 0.01);
+    const filter100 = new ShakeebBloomFilter(itemCount, 0.01);
 
     // Add many items
     for (let i = 0; i < itemCount; i++) {

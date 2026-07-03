@@ -9,9 +9,9 @@
  * - lengthArray: Uint32 lengths of each definition
  */
 
-import type { ShaekeebTypedIndex, DictionaryEntry } from '../core/types';
+import type { ShakeebTypedIndex, DictionaryEntry } from '../core/types';
 
-export class ShaekeebTypedIndexBuilder {
+export class ShakeebTypedIndexBuilder {
   private words: string[] = [];
   private offsets: number[] = [];
   private lengths: number[] = [];
@@ -31,7 +31,7 @@ export class ShaekeebTypedIndexBuilder {
    * Build the typed index from collected entries
    * Returns a shareable typed index structure
    */
-  public build(): ShaekeebTypedIndex {
+  public build(): ShakeebTypedIndex {
     if (this.wordCount === 0) {
       throw new Error('Cannot build index with 0 entries');
     }
@@ -75,7 +75,7 @@ export class ShaekeebTypedIndexBuilder {
    * Build index with SharedArrayBuffer for worker access
    * Allows zero-copy sharing with Web Workers
    */
-  public buildWithSharedBuffer(): ShaekeebTypedIndex {
+  public buildWithSharedBuffer(): ShakeebTypedIndex {
     // First build the regular index
     const index = this.build();
 
@@ -140,10 +140,10 @@ export class ShaekeebTypedIndexBuilder {
  * Utility class for working with TypedIndex
  */
 export class TypedIndexReader {
-  private index: ShaekeebTypedIndex;
+  private index: ShakeebTypedIndex;
   private decoder: TextDecoder;
 
-  constructor(index: ShaekeebTypedIndex) {
+  constructor(index: ShakeebTypedIndex) {
     this.index = index;
     this.decoder = new TextDecoder('utf-8');
   }

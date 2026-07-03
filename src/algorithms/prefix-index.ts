@@ -11,15 +11,15 @@
  * - "ک" (Urdu) → prefix bytes [0xDA, 0xA9]
  */
 
-import type { ShaekeebTypedIndex } from '../core/types';
+import type { ShakeebTypedIndex } from '../core/types';
 
-export class ShaekeebPrefixIndex {
-  private index: ShaekeebTypedIndex;
+export class ShakeebPrefixIndex {
+  private index: ShakeebTypedIndex;
   private prefixes: Map<number, { start: number; end: number }> = new Map();
   private decoder: TextDecoder;
   private encoder: TextEncoder = new TextEncoder();
 
-  constructor(index: ShaekeebTypedIndex) {
+  constructor(index: ShakeebTypedIndex) {
     this.index = index;
     this.decoder = new TextDecoder('utf-8');
     this.buildPrefixIndex();

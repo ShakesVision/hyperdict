@@ -53,9 +53,13 @@ export interface MountOptions {
   /** localStorage key for dictionary order. Default 'hyperdict:order'. null = off. */
   orderKey?: string | null;
   root?: HTMLElement;
+  /** Show the selection "look up" chip. Default true (desktop + mobile). */
   selection?: boolean;
+  /** Also look up on long-press. Default false (collides with normal selection). */
   longPress?: boolean;
   longPressMs?: number;
+  /** HTML/text/emoji for the selection chip (e.g. '📖' or 'Define'). Default: search icon. */
+  chipLabel?: string;
 }
 
 export interface MountedUI {
@@ -238,6 +242,7 @@ export function mountHyperDictUI(options: MountOptions): MountedUI {
     selection: options.selection,
     longPress: options.longPress,
     longPressMs: options.longPressMs,
+    chipLabel: options.chipLabel,
     ignore: (target) => popup.contains(target) || !!managePanel?.contains(target),
     onLookup: (word) => popup.open(word),
   });

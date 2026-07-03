@@ -15,15 +15,15 @@
 import type { DictZipHeader } from '../core/types';
 import type { ByteSource } from '../io/byte-source';
 import type { ContentReader } from '../dict/content-reader';
-import { ShaekeebLRUCache } from '../algorithms/lru-cache';
+import { ShakeebLRUCache } from '../algorithms/lru-cache';
 
 /** Raw-DEFLATE inflate function, injected so the core stays decompressor-agnostic. */
 export type RawInflate = (data: Uint8Array) => Uint8Array;
 
-export class ShaekeebBlockReader implements ContentReader {
+export class ShakeebBlockReader implements ContentReader {
   private source: ByteSource;
   private header: DictZipHeader;
-  private cache: ShaekeebLRUCache;
+  private cache: ShakeebLRUCache;
   private inflate: RawInflate;
   /** In-flight chunk fetches, so concurrent reads of one chunk share the work. */
   private inflight: Map<number, Promise<Uint8Array>> = new Map();
@@ -36,7 +36,7 @@ export class ShaekeebBlockReader implements ContentReader {
   ) {
     this.source = source;
     this.header = header;
-    this.cache = new ShaekeebLRUCache(cacheSize);
+    this.cache = new ShakeebLRUCache(cacheSize);
     this.inflate = inflate;
   }
 

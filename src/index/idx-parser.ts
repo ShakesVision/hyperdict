@@ -7,9 +7,9 @@
  * - Each entry: [word]\0 [offset:4bytes big-endian] [size:4bytes big-endian]
  */
 
-import type { DictionaryMetadata, ShaekeebTypedIndex } from '../core/types';
+import type { DictionaryMetadata, ShakeebTypedIndex } from '../core/types';
 
-export class ShaekeebIdxParser {
+export class ShakeebIdxParser {
   /**
    * Parse a .idx buffer directly into a TypedIndex — no intermediate strings.
    *
@@ -23,7 +23,7 @@ export class ShaekeebIdxParser {
    *
    * Accepts an ArrayBuffer (network) or a Uint8Array (e.g. extracted from a zip).
    */
-  public parseIdx(input: ArrayBuffer | Uint8Array): ShaekeebTypedIndex {
+  public parseIdx(input: ArrayBuffer | Uint8Array): ShakeebTypedIndex {
     const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const len = bytes.byteLength;
@@ -77,7 +77,7 @@ export class ShaekeebIdxParser {
   /**
    * Parse .idx file from URL using fetch
    */
-  public async parseIdxFromUrl(url: string): Promise<ShaekeebTypedIndex> {
+  public async parseIdxFromUrl(url: string): Promise<ShakeebTypedIndex> {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
@@ -91,7 +91,7 @@ export class ShaekeebIdxParser {
 /**
  * IFO Parser - Parse StarDict .ifo metadata files
  */
-export class ShaekeebIfoParser {
+export class ShakeebIfoParser {
   private decoder: TextDecoder;
 
   constructor() {

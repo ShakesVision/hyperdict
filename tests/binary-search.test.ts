@@ -4,15 +4,15 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ShaekeebBinarySearch } from '../src/algorithms/binary-search';
-import { ShaekeebTypedIndexBuilder } from '../src/index/typed-index';
+import { ShakeebBinarySearch } from '../src/algorithms/binary-search';
+import { ShakeebTypedIndexBuilder } from '../src/index/typed-index';
 
-describe('ShaekeebBinarySearch', () => {
-  let search: ShaekeebBinarySearch;
+describe('ShakeebBinarySearch', () => {
+  let search: ShakeebBinarySearch;
 
   beforeEach(() => {
     // Build test index
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
 
     const testWords = [
       'apple',
@@ -30,7 +30,7 @@ describe('ShaekeebBinarySearch', () => {
     });
 
     const index = builder.build();
-    search = new ShaekeebBinarySearch(index);
+    search = new ShakeebBinarySearch(index);
   });
 
   it('should find exact word match', () => {
@@ -65,7 +65,7 @@ describe('ShaekeebBinarySearch', () => {
   });
 
   it('should find multiple words with prefix', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     const words = ['cat', 'car', 'card', 'care', 'dog'];
 
     words.forEach((word, i) => {
@@ -73,7 +73,7 @@ describe('ShaekeebBinarySearch', () => {
     });
 
     const index = builder.build();
-    const searcher = new ShaekeebBinarySearch(index);
+    const searcher = new ShakeebBinarySearch(index);
 
     const results = searcher.findPrefix('ca');
     expect(results.length).toBe(4); // cat, car, card, care
@@ -85,7 +85,7 @@ describe('ShaekeebBinarySearch', () => {
   });
 
   it('should handle UTF-8 words (Urdu)', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     // Note: Binary search requires sorted words
     const words = ['کتاب', 'لکھنا', 'پڑھنا', 'سمجھنا'].sort();
 
@@ -94,7 +94,7 @@ describe('ShaekeebBinarySearch', () => {
     });
 
     const index = builder.build();
-    const searcher = new ShaekeebBinarySearch(index);
+    const searcher = new ShakeebBinarySearch(index);
 
     // Find the index of the word we're searching for
     const wordIndex = words.indexOf('کتاب');
@@ -103,7 +103,7 @@ describe('ShaekeebBinarySearch', () => {
   });
 
   it('should handle Arabic words', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     const words = ['علم', 'عمل', 'عالم'];
 
     words.forEach((word, i) => {
@@ -111,7 +111,7 @@ describe('ShaekeebBinarySearch', () => {
     });
 
     const index = builder.build();
-    const searcher = new ShaekeebBinarySearch(index);
+    const searcher = new ShakeebBinarySearch(index);
 
     const result = searcher.findWord('عمل');
     expect(result).toBe(1);

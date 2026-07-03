@@ -11,8 +11,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { deflateSync } from 'fflate';
-import { ShaekeebDictZipHeaderParser } from '../src/dictzip/header-parser';
-import { ShaekeebBlockReader } from '../src/dictzip/block-reader';
+import { ShakeebDictZipHeaderParser } from '../src/dictzip/header-parser';
+import { ShakeebBlockReader } from '../src/dictzip/block-reader';
 import { rawInflate } from '../src/dictzip/inflate';
 import { BufferByteSource } from '../src/io/byte-source';
 
@@ -67,7 +67,7 @@ describe('DictZip header parser', () => {
   it('reads CHLEN / CHCNT / compressed-length table little-endian', () => {
     const content = new TextEncoder().encode('A'.repeat(50) + 'B'.repeat(50));
     const buf = buildDictzip(content, 30); // 100 bytes / 30 => 4 chunks
-    const header = new ShaekeebDictZipHeaderParser().parseHeader(buf);
+    const header = new ShakeebDictZipHeaderParser().parseHeader(buf);
 
     expect(header.chunkLength).toBe(30);
     expect(header.chunkCount).toBe(4);
@@ -82,7 +82,7 @@ describe('DictZip header parser', () => {
   });
 
   it('rejects a non-gzip buffer', () => {
-    const parser = new ShaekeebDictZipHeaderParser();
+    const parser = new ShakeebDictZipHeaderParser();
     expect(() => parser.parseHeader(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]))).toThrow();
   });
 });
@@ -97,8 +97,8 @@ describe('DictZip block reader', () => {
     const chunkLength = 30;
     const buf = buildDictzip(content, chunkLength);
 
-    const header = new ShaekeebDictZipHeaderParser().parseHeader(buf);
-    const reader = new ShaekeebBlockReader(new BufferByteSource(buf), header, rawInflate);
+    const header = new ShakeebDictZipHeaderParser().parseHeader(buf);
+    const reader = new ShakeebBlockReader(new BufferByteSource(buf), header, rawInflate);
 
     // Whole content.
     const all = await reader.readBytes(0, content.length);

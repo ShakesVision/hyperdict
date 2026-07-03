@@ -6,15 +6,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ShaekeebTypedIndexBuilder, TypedIndexReader } from '../src/index/typed-index';
-import { ShaekeebBinarySearch } from '../src/algorithms/binary-search';
-import { ShaekeebPrefixIndex } from '../src/algorithms/prefix-index';
-import { ShaekeebBloomFilter } from '../src/algorithms/bloom-filter';
-import { ShaekeebLRUCache } from '../src/algorithms/lru-cache';
+import { ShakeebTypedIndexBuilder, TypedIndexReader } from '../src/index/typed-index';
+import { ShakeebBinarySearch } from '../src/algorithms/binary-search';
+import { ShakeebPrefixIndex } from '../src/algorithms/prefix-index';
+import { ShakeebBloomFilter } from '../src/algorithms/bloom-filter';
+import { ShakeebLRUCache } from '../src/algorithms/lru-cache';
 
 describe('TypedIndex', () => {
   it('should build index with entries', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     builder.addEntry('apple', 100, 50);
     builder.addEntry('banana', 200, 60);
     builder.addEntry('cherry', 300, 45);
@@ -28,7 +28,7 @@ describe('TypedIndex', () => {
   });
 
   it('should read words correctly', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     builder.addEntry('hello', 0, 10);
     builder.addEntry('world', 10, 10);
 
@@ -40,7 +40,7 @@ describe('TypedIndex', () => {
   });
 
   it('should estimate memory usage', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     builder.addEntry('test1', 0, 10);
     builder.addEntry('test2', 10, 10);
 
@@ -51,13 +51,13 @@ describe('TypedIndex', () => {
 
 describe('Binary Search', () => {
   it('should find exact match', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     builder.addEntry('apple', 0, 10);
     builder.addEntry('banana', 10, 10);
     builder.addEntry('cherry', 20, 10);
 
     const index = builder.build();
-    const search = new ShaekeebBinarySearch(index);
+    const search = new ShakeebBinarySearch(index);
 
     expect(search.findWord('apple')).toBe(0);
     expect(search.findWord('banana')).toBe(1);
@@ -65,23 +65,23 @@ describe('Binary Search', () => {
   });
 
   it('should return -1 for non-existent word', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     builder.addEntry('apple', 0, 10);
     builder.addEntry('banana', 10, 10);
 
     const index = builder.build();
-    const search = new ShaekeebBinarySearch(index);
+    const search = new ShakeebBinarySearch(index);
 
     expect(search.findWord('grape')).toBe(-1);
   });
 
   it('should support case-insensitive search', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     builder.addEntry('Apple', 0, 10);
     builder.addEntry('Banana', 10, 10);
 
     const index = builder.build();
-    const search = new ShaekeebBinarySearch(index);
+    const search = new ShakeebBinarySearch(index);
 
     expect(search.findWordCaseInsensitive('apple')).toBe(0);
     expect(search.findWordCaseInsensitive('APPLE')).toBe(0);
@@ -90,7 +90,7 @@ describe('Binary Search', () => {
 
 describe('Bloom Filter', () => {
   it('should add and check items', () => {
-    const filter = new ShaekeebBloomFilter(100, 0.01);
+    const filter = new ShakeebBloomFilter(100, 0.01);
 
     filter.add('apple');
     filter.add('banana');
@@ -100,7 +100,7 @@ describe('Bloom Filter', () => {
   });
 
   it('should have low false positive rate', () => {
-    const filter = new ShaekeebBloomFilter(1000, 0.01);
+    const filter = new ShakeebBloomFilter(1000, 0.01);
 
     // Add words
     for (let i = 0; i < 100; i++) {
@@ -120,12 +120,12 @@ describe('Bloom Filter', () => {
   });
 
   it('should support serialization', () => {
-    const filter = new ShaekeebBloomFilter(100, 0.01);
+    const filter = new ShakeebBloomFilter(100, 0.01);
     filter.add('test1');
     filter.add('test2');
 
     const serialized = filter.toBase64();
-    const restored = ShaekeebBloomFilter.fromBase64(serialized);
+    const restored = ShakeebBloomFilter.fromBase64(serialized);
 
     expect(restored.mightContain('test1')).toBe(true);
     expect(restored.mightContain('test2')).toBe(true);
@@ -134,13 +134,13 @@ describe('Bloom Filter', () => {
 
 describe('Prefix Index', () => {
   it('should create prefix index', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     builder.addEntry('apple', 0, 10);
     builder.addEntry('apricot', 10, 10);
     builder.addEntry('banana', 20, 10);
 
     const index = builder.build();
-    const prefixIndex = new ShaekeebPrefixIndex(index);
+    const prefixIndex = new ShakeebPrefixIndex(index);
 
     const stats = prefixIndex.getStats();
     expect(stats.totalWords).toBe(3);
@@ -148,13 +148,13 @@ describe('Prefix Index', () => {
   });
 
   it('should get search range', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     builder.addEntry('apple', 0, 10);
     builder.addEntry('apricot', 10, 10);
     builder.addEntry('banana', 20, 10);
 
     const index = builder.build();
-    const prefixIndex = new ShaekeebPrefixIndex(index);
+    const prefixIndex = new ShakeebPrefixIndex(index);
 
     const range = prefixIndex.getSearchRange('apple');
     expect(range).not.toBeNull();
@@ -163,7 +163,7 @@ describe('Prefix Index', () => {
 
 describe('LRU Cache', () => {
   it('should cache items', () => {
-    const cache = new ShaekeebLRUCache(3);
+    const cache = new ShakeebLRUCache(3);
 
     const data1 = new Uint8Array([1, 2, 3]);
     cache.set(1, data1);
@@ -173,7 +173,7 @@ describe('LRU Cache', () => {
   });
 
   it('should evict LRU item when full', () => {
-    const cache = new ShaekeebLRUCache(2);
+    const cache = new ShakeebLRUCache(2);
 
     const data1 = new Uint8Array([1, 2, 3]);
     const data2 = new Uint8Array([4, 5, 6]);
@@ -189,7 +189,7 @@ describe('LRU Cache', () => {
   });
 
   it('should track cache statistics', () => {
-    const cache = new ShaekeebLRUCache(5);
+    const cache = new ShakeebLRUCache(5);
 
     cache.set(1, new Uint8Array([1, 2, 3]));
     cache.set(2, new Uint8Array([4, 5, 6]));

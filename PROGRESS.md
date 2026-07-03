@@ -13,62 +13,62 @@
 
 ### 2. Core Data Structures
 
-- ✅ Type definitions (ShaekeebTypedIndex, Dictionary types, etc.)
-- ✅ ShaekeebTypedIndexBuilder - TypedArray index construction
+- ✅ Type definitions (ShakeebTypedIndex, Dictionary types, etc.)
+- ✅ ShakeebTypedIndexBuilder - TypedArray index construction
 - ✅ TypedIndexReader - Ultra-fast typed index reading
 - ✅ SharedArrayBuffer support planned for worker access
 
 ### 3. Binary Search Engine
 
-- ✅ ShaekeebBinarySearch - Direct byte-level comparison
+- ✅ ShakeebBinarySearch - Direct byte-level comparison
 - ✅ No temporary string creation during search
 - ✅ Optimized for UTF-8 encoded words
 - ✅ Supports exact match, prefix search, case-insensitive search
 
 ### 4. Prefix Index (UTF-8 bytes)
 
-- ✅ ShaekeebPrefixIndex - First 2-byte prefix mapping
+- ✅ ShakeebPrefixIndex - First 2-byte prefix mapping
 - ✅ Reduces binary search scope by 1000-10000x
 - ✅ Proper UTF-8 multi-byte character support
 - ✅ Memory target: <200KB
 
 ### 5. Bloom Filter
 
-- ✅ ShaekeebBloomFilter - Instant negative lookup
+- ✅ ShakeebBloomFilter - Instant negative lookup
 - ✅ Probabilistic structure with 0.01 false positive rate
 - ✅ Memory target: 256KB
 - ✅ Base64 serialization support
 
 ### 6. LRU Cache
 
-- ✅ ShaekeebLRUCache - Block cache implementation
+- ✅ ShakeebLRUCache - Block cache implementation
 - ✅ Default 32 blocks (~2MB memory)
 - ✅ Automatic LRU eviction
 - ✅ Statistics tracking
 
 ### 7. IDX Parser
 
-- ✅ ShaekeebIdxParser - StarDict .idx file parsing
+- ✅ ShakeebIdxParser - StarDict .idx file parsing
 - ✅ Builds TypedArray structures
-- ✅ ShaekeebIfoParser - .ifo metadata parsing
+- ✅ ShakeebIfoParser - .ifo metadata parsing
 - ✅ Validation methods
 
 ### 8. DictZip Header Parser
 
-- ✅ ShaekeebDictZipHeaderParser - gzip RA field parsing
+- ✅ ShakeebDictZipHeaderParser - gzip RA field parsing
 - ✅ Extracts block size and block offsets
 - ✅ Support for random access decompression
 
 ### 9. HTTP Range Fetcher
 
-- ✅ ShaekeebRangeFetcher - Efficient partial downloads
+- ✅ ShakeebRangeFetcher - Efficient partial downloads
 - ✅ HTTP Range header support
 - ✅ Simple caching
 - ✅ File size detection
 
 ### 10. DictZip Block Reader
 
-- ✅ ShaekeebBlockReader - Block decompression
+- ✅ ShakeebBlockReader - Block decompression
 - ✅ LRU cache integration
 - ✅ Prefetch support
 - ✅ Fflate integration

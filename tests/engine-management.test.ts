@@ -9,8 +9,8 @@ import { zipSync } from 'fflate';
 import { HyperDict } from '../src/core/engine';
 import { Dictionary } from '../src/dict/dictionary';
 import { rawInflate } from '../src/dictzip/inflate';
-import { ShaekeebTypedIndexBuilder } from '../src/index/typed-index';
-import { ShaekeebBinarySearch } from '../src/algorithms/binary-search';
+import { ShakeebTypedIndexBuilder } from '../src/index/typed-index';
+import { ShakeebBinarySearch } from '../src/algorithms/binary-search';
 
 const enc = new TextEncoder();
 
@@ -115,10 +115,10 @@ describe('dictionary-set model', () => {
 
 describe('case-insensitive binary search', () => {
   it('finds case variants in O(log n) on a case-insensitively-sorted index', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     // g_ascii_strcasecmp order: Apple/apple (tie → byte), then BANANA, then cat.
     ['Apple', 'apple', 'BANANA', 'cat'].forEach((w, i) => builder.addEntry(w, i, 1));
-    const search = new ShaekeebBinarySearch(builder.build());
+    const search = new ShakeebBinarySearch(builder.build());
 
     const ai = search.findWordCaseInsensitive('APPLE');
     expect(ai === 0 || ai === 1).toBe(true);

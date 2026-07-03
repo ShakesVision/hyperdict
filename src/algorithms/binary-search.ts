@@ -8,14 +8,14 @@
  * - Works with UTF-8 encoded bytes
  */
 
-import type { ShaekeebTypedIndex } from '../core/types';
+import type { ShakeebTypedIndex } from '../core/types';
 
-export class ShaekeebBinarySearch {
-  private index: ShaekeebTypedIndex;
+export class ShakeebBinarySearch {
+  private index: ShakeebTypedIndex;
   private encoder: TextEncoder;
   private decoder: TextDecoder;
 
-  constructor(index: ShaekeebTypedIndex) {
+  constructor(index: ShakeebTypedIndex) {
     this.index = index;
     this.encoder = new TextEncoder();
     this.decoder = new TextDecoder('utf-8');

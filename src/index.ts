@@ -26,7 +26,7 @@ export type { ByteSource } from './io/byte-source';
 
 // Types
 export type {
-  ShaekeebTypedIndex,
+  ShakeebTypedIndex,
   DictionaryEntry,
   DictionaryMetadata,
   DictionaryConfig,
@@ -41,20 +41,20 @@ export { fetchBuffer, fetchText, clearFileCache, DEFAULT_CACHE_NAME } from './io
 export type { FetchOptions } from './io/cached-fetch';
 
 // Algorithms (reusable building blocks)
-export { ShaekeebBinarySearch } from './algorithms/binary-search';
-export { ShaekeebPrefixIndex } from './algorithms/prefix-index';
-export { ShaekeebBloomFilter } from './algorithms/bloom-filter';
-export { ShaekeebLRUCache } from './algorithms/lru-cache';
+export { ShakeebBinarySearch } from './algorithms/binary-search';
+export { ShakeebPrefixIndex } from './algorithms/prefix-index';
+export { ShakeebBloomFilter } from './algorithms/bloom-filter';
+export { ShakeebLRUCache } from './algorithms/lru-cache';
 
 // Parsers
-export { ShaekeebIdxParser, ShaekeebIfoParser } from './index/idx-parser';
-export { ShaekeebTypedIndexBuilder, TypedIndexReader } from './index/typed-index';
+export { ShakeebIdxParser, ShakeebIfoParser } from './index/idx-parser';
+export { ShakeebTypedIndexBuilder, TypedIndexReader } from './index/typed-index';
 
 // DictZip
-export { ShaekeebDictZipHeaderParser } from './dictzip/header-parser';
-export { ShaekeebBlockReader } from './dictzip/block-reader';
+export { ShakeebDictZipHeaderParser } from './dictzip/header-parser';
+export { ShakeebBlockReader } from './dictzip/block-reader';
 export type { RawInflate } from './dictzip/block-reader';
 export { rawInflate } from './dictzip/inflate';
 
 // IO
-export { ShaekeebRangeFetcher } from './io/range-fetch';
+export { ShakeebRangeFetcher } from './io/range-fetch';

@@ -1,5 +1,12 @@
 # HyperDict.js
 
+[![CI](https://github.com/ShakesVision/hyperdict/actions/workflows/ci.yml/badge.svg)](https://github.com/ShakesVision/hyperdict/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/hyperdict.svg)](https://www.npmjs.com/package/hyperdict)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](https://www.typescriptlang.org/)
+[![Made for Urdu / RTL](https://img.shields.io/badge/made%20for-Urdu%20%2F%20RTL-000.svg)](https://shakeeb.in)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/ShakesVision/hyperdict/pulls)
+
 Ultra-fast StarDict dictionary engine for the browser - GoldenDict-style lookups with zero dependencies for the core library.
 
 ## 🚀 Features

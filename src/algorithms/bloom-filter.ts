@@ -9,7 +9,7 @@
  * Target: 256KB memory, ~2^16 bits (65536 bits)
  */
 
-export class ShaekeebBloomFilter {
+export class ShakeebBloomFilter {
   private bits: Uint8Array;
   private hashCount: number = 4; // Number of hash functions
   private bitSize: number;
@@ -167,7 +167,7 @@ export class ShaekeebBloomFilter {
   /**
    * Deserialize from base64
    */
-  public static fromBase64(base64: string): ShaekeebBloomFilter {
+  public static fromBase64(base64: string): ShakeebBloomFilter {
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
 
@@ -179,7 +179,7 @@ export class ShaekeebBloomFilter {
     const hashCount = bytes[0];
     const bitArray = bytes.slice(1);
 
-    const filter = new ShaekeebBloomFilter(0, 0.01);
+    const filter = new ShakeebBloomFilter(0, 0.01);
     filter.bits = bitArray;
     filter.bitSize = bitArray.length;
     filter.hashCount = hashCount;

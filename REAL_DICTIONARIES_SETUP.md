@@ -48,9 +48,9 @@ Files needed:
 
 | File Type  | Purpose                                        | Handled By                                            | Status          |
 | ---------- | ---------------------------------------------- | ----------------------------------------------------- | --------------- |
-| `.ifo`     | Dictionary metadata (version, wordcount, etc.) | `ShaekeebIfoParser`                                   | ✅ Full support |
-| `.idx`     | Word index (all words + offsets)               | `ShaekeebIdxParser`                                   | ✅ Full support |
-| `.dict.dz` | Compressed definitions                         | `ShaekeebDictZipHeaderParser` + `ShaekeebBlockReader` | ✅ Full support |
+| `.ifo`     | Dictionary metadata (version, wordcount, etc.) | `ShakeebIfoParser`                                   | ✅ Full support |
+| `.idx`     | Word index (all words + offsets)               | `ShakeebIdxParser`                                   | ✅ Full support |
+| `.dict.dz` | Compressed definitions                         | `ShakeebDictZipHeaderParser` + `ShakeebBlockReader` | ✅ Full support |
 | `.syn`     | Synonyms (optional)                            | Future enhancement                                    | ⏳ Not yet      |
 
 ### Loading Strategy:

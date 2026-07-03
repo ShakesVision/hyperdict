@@ -4,14 +4,14 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ShaekeebPrefixIndex } from '../src/algorithms/prefix-index';
-import { ShaekeebTypedIndexBuilder } from '../src/index/typed-index';
+import { ShakeebPrefixIndex } from '../src/algorithms/prefix-index';
+import { ShakeebTypedIndexBuilder } from '../src/index/typed-index';
 
-describe('ShaekeebPrefixIndex', () => {
-  let prefixIndex: ShaekeebPrefixIndex;
+describe('ShakeebPrefixIndex', () => {
+  let prefixIndex: ShakeebPrefixIndex;
 
   beforeEach(() => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
 
     const testWords = [
       'apple',
@@ -29,7 +29,7 @@ describe('ShaekeebPrefixIndex', () => {
     });
 
     const index = builder.build();
-    prefixIndex = new ShaekeebPrefixIndex(index);
+    prefixIndex = new ShakeebPrefixIndex(index);
   });
 
   it('should create prefix index', () => {
@@ -91,7 +91,7 @@ describe('ShaekeebPrefixIndex', () => {
   });
 
   it('should handle UTF-8 prefixes (Urdu)', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     const words = ['کتاب', 'کام', 'لکھنا', 'لمحہ'];
 
     words.forEach((word, i) => {
@@ -99,7 +99,7 @@ describe('ShaekeebPrefixIndex', () => {
     });
 
     const index = builder.build();
-    const index2 = new ShaekeebPrefixIndex(index);
+    const index2 = new ShakeebPrefixIndex(index);
 
     const range1 = index2.getSearchRange('کتاب');
     const range2 = index2.getSearchRange('لکھنا');
@@ -109,7 +109,7 @@ describe('ShaekeebPrefixIndex', () => {
   });
 
   it('should handle Arabic characters', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     const words = ['علم', 'عمل', 'عالم', 'فن'];
 
     words.forEach((word, i) => {
@@ -117,14 +117,14 @@ describe('ShaekeebPrefixIndex', () => {
     });
 
     const index = builder.build();
-    const index3 = new ShaekeebPrefixIndex(index);
+    const index3 = new ShakeebPrefixIndex(index);
 
     const range = index3.getSearchRange('علم');
     expect(range).not.toBeNull();
   });
 
   it('should optimize search scope', () => {
-    const builder = new ShaekeebTypedIndexBuilder();
+    const builder = new ShakeebTypedIndexBuilder();
     const words = [];
 
     // Generate 1000 words for comprehensive test
@@ -144,7 +144,7 @@ describe('ShaekeebPrefixIndex', () => {
     });
 
     const index = builder.build();
-    const index4 = new ShaekeebPrefixIndex(index);
+    const index4 = new ShakeebPrefixIndex(index);
 
     // Search range for "apple" should be much smaller than full index
     const range = index4.getSearchRange('apple');

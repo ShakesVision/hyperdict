@@ -67,16 +67,16 @@ cd c:\Shakeeb\Home\PlainHTML\hyperdict\demo
 ```
 HyperDict (IIFE global)
 ├── HyperDict class (main engine)
-├── ShaekeebBinarySearch
-├── ShaekeebPrefixIndex
-├── ShaekeebBloomFilter
-├── ShaekeebLRUCache
-├── ShaekeebIdxParser
-├── ShaekeebIfoParser
-├── ShaekeebTypedIndexBuilder
-├── ShaekeebDictZipHeaderParser
-├── ShaekeebBlockReader
-├── ShaekeebRangeFetcher
+├── ShakeebBinarySearch
+├── ShakeebPrefixIndex
+├── ShakeebBloomFilter
+├── ShakeebLRUCache
+├── ShakeebIdxParser
+├── ShakeebIfoParser
+├── ShakeebTypedIndexBuilder
+├── ShakeebDictZipHeaderParser
+├── ShakeebBlockReader
+├── ShakeebRangeFetcher
 └── TypedIndexReader
 ```
 

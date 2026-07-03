@@ -6,7 +6,7 @@
  * Supports both full file fetches and partial range requests
  */
 
-export class ShaekeebRangeFetcher {
+export class ShakeebRangeFetcher {
   private url: string;
 
   constructor(url: string) {

@@ -291,16 +291,16 @@ Exported from `hyperdict` for custom pipelines:
 - `Dictionary` — one loaded dictionary (`Dictionary.load(config, { inflate, cacheSize, persist })`).
 - `resolveFiles(config)` — config → concrete file URLs.
 - `ByteSource`, `HttpByteSource`, `BufferByteSource` — "read a byte range" abstraction.
-- `PlainDictReader` / `ShaekeebBlockReader` — uncompressed vs dictzip content readers (both `ContentReader`).
-- `ShaekeebDictZipHeaderParser` — parse the dictzip RA header.
+- `PlainDictReader` / `ShakeebBlockReader` — uncompressed vs dictzip content readers (both `ContentReader`).
+- `ShakeebDictZipHeaderParser` — parse the dictzip RA header.
 - `rawInflate` — streaming raw-DEFLATE inflate (handles flushed dictzip chunks).
 - `stripDiacritics` / `hasDiacritics` — Urdu/Arabic diacritic helpers. `lookup`/
   `getDefinition` already strip diacritics from the query on a miss, so "عِلْم"
   finds the headword "علم" out of the box; set engine `normalize: true` to also
   match diacritic-bearing headwords from a bare query.
-- `ShaekeebIdxParser`, `ShaekeebIfoParser`, `ShaekeebTypedIndexBuilder`, `TypedIndexReader`.
-- `ShaekeebBinarySearch`, `ShaekeebPrefixIndex`, `ShaekeebBloomFilter`, `ShaekeebLRUCache`.
-- `ShaekeebRangeFetcher` — HTTP Range helper.
+- `ShakeebIdxParser`, `ShakeebIfoParser`, `ShakeebTypedIndexBuilder`, `TypedIndexReader`.
+- `ShakeebBinarySearch`, `ShakeebPrefixIndex`, `ShakeebBloomFilter`, `ShakeebLRUCache`.
+- `ShakeebRangeFetcher` — HTTP Range helper.
 
 ---
 

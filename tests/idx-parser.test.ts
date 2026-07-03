@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { zipSync } from 'fflate';
-import { ShaekeebIdxParser } from '../src/index/idx-parser';
+import { ShakeebIdxParser } from '../src/index/idx-parser';
 import { TypedIndexReader } from '../src/index/typed-index';
 import { Dictionary } from '../src/dict/dictionary';
 import { rawInflate } from '../src/dictzip/inflate';
@@ -32,7 +32,7 @@ function buildIdx(entries: Array<{ w: string; off: number; size: number }>): Uin
   return out;
 }
 
-describe('ShaekeebIdxParser.parseIdx (direct build)', () => {
+describe('ShakeebIdxParser.parseIdx (direct build)', () => {
   const entries = [
     { w: 'apple', off: 0, size: 7 },
     { w: 'کتاب', off: 7, size: 20 }, // multi-byte UTF-8 word
@@ -40,7 +40,7 @@ describe('ShaekeebIdxParser.parseIdx (direct build)', () => {
   ];
 
   it('parses words, offsets and sizes correctly', () => {
-    const idx = new ShaekeebIdxParser().parseIdx(buildIdx(entries));
+    const idx = new ShakeebIdxParser().parseIdx(buildIdx(entries));
     const reader = new TypedIndexReader(idx);
 
     expect(idx.wordOffsets.length).toBe(3);
@@ -57,7 +57,7 @@ describe('ShaekeebIdxParser.parseIdx (direct build)', () => {
     padded.set(raw, 5);
     const view = padded.subarray(5); // byteOffset = 5
 
-    const idx = new ShaekeebIdxParser().parseIdx(view);
+    const idx = new ShakeebIdxParser().parseIdx(view);
     const reader = new TypedIndexReader(idx);
     expect(idx.wordOffsets.length).toBe(3);
     expect(reader.getWordString(1)).toBe('کتاب');

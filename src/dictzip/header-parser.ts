@@ -35,7 +35,7 @@ const FEXTRA = 0x04;
 const FNAME = 0x08;
 const FCOMMENT = 0x10;
 
-export class ShaekeebDictZipHeaderParser {
+export class ShakeebDictZipHeaderParser {
   /**
    * Parse a dictzip header from the leading bytes of a .dict.dz file.
    *

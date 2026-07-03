@@ -11,14 +11,14 @@
  * Communication with main thread via postMessage()
  */
 
-import { ShaekeebIdxParser, ShaekeebIfoParser } from '../index/idx-parser';
+import { ShakeebIdxParser, ShakeebIfoParser } from '../index/idx-parser';
 import { TypedIndexReader } from '../index/typed-index';
-import { ShaekeebBinarySearch } from '../algorithms/binary-search';
-import { ShaekeebPrefixIndex } from '../algorithms/prefix-index';
-import { ShaekeebBloomFilter } from '../algorithms/bloom-filter';
+import { ShakeebBinarySearch } from '../algorithms/binary-search';
+import { ShakeebPrefixIndex } from '../algorithms/prefix-index';
+import { ShakeebBloomFilter } from '../algorithms/bloom-filter';
 
 import type {
-  ShaekeebTypedIndex,
+  ShakeebTypedIndex,
   DictionaryMetadata,
   WorkerMessage,
   WorkerResponse,
@@ -26,24 +26,24 @@ import type {
 
 interface WorkerDictionary {
   name: string;
-  index: ShaekeebTypedIndex;
+  index: ShakeebTypedIndex;
   metadata: DictionaryMetadata;
-  search: ShaekeebBinarySearch;
-  prefixIndex: ShaekeebPrefixIndex;
-  bloomFilter: ShaekeebBloomFilter;
+  search: ShakeebBinarySearch;
+  prefixIndex: ShakeebPrefixIndex;
+  bloomFilter: ShakeebBloomFilter;
 }
 
 /**
  * Worker context - manages dictionaries and performs lookups
  */
-class ShaekeebWorkerContext {
+class ShakeebWorkerContext {
   private dictionaries: Map<string, WorkerDictionary> = new Map();
-  private idxParser: ShaekeebIdxParser;
-  private ifoParser: ShaekeebIfoParser;
+  private idxParser: ShakeebIdxParser;
+  private ifoParser: ShakeebIfoParser;
 
   constructor() {
-    this.idxParser = new ShaekeebIdxParser();
-    this.ifoParser = new ShaekeebIfoParser();
+    this.idxParser = new ShakeebIdxParser();
+    this.ifoParser = new ShakeebIfoParser();
   }
 
   /**
@@ -67,9 +67,9 @@ class ShaekeebWorkerContext {
 
       // Create search structures
       const reader = new TypedIndexReader(index);
-      const search = new ShaekeebBinarySearch(index);
-      const prefixIndex = new ShaekeebPrefixIndex(index);
-      const bloomFilter = new ShaekeebBloomFilter(metadata.wordcount);
+      const search = new ShakeebBinarySearch(index);
+      const prefixIndex = new ShakeebPrefixIndex(index);
+      const bloomFilter = new ShakeebBloomFilter(metadata.wordcount);
 
       // Populate bloom filter
       for (let i = 0; i < index.wordOffsets.length; i++) {
@@ -181,7 +181,7 @@ class ShaekeebWorkerContext {
 }
 
 // Create worker instance
-const workerContext = new ShaekeebWorkerContext();
+const workerContext = new ShakeebWorkerContext();
 
 /**
  * Handle messages from main thread
